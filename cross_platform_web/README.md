@@ -42,7 +42,7 @@ a Why Horizon section and FAQ.
   flights, sectors, aircraft, reservations
 - **1-stop connecting flights** — when no direct flight exists (e.g. Varanasi → Bengaluru), Flights shows a via-Delhi option with total fare, journey time and layover; each leg is booked separately (2 PNRs)
 - **All-India routes** — 30 airports and 86 demo flights covering Delhi, Mumbai, Lucknow, Bengaluru, Chennai, Hyderabad, Kolkata, Ahmedabad, Jaipur, Patna, Varanasi, Pune, Goa, Kochi, Guwahati, Srinagar, Dehradun, Chandigarh, Bhubaneswar, Indore, Nagpur, Ranchi, Raipur, Amritsar, Coimbatore, Visakhapatnam, Tirupati, Agartala and Port Blair; new routes use demo fares/timings (not live airline data), and older databases gain the new routes automatically on the next run
-- **Animated scenery background** — a looping flight-scenery GIF (blue sky, drifting clouds, plane, skyline) runs as the page wallpaper behind the content; cards stay readable with a near-opaque background, and the wallpaper dims in dark mode
+- **Animated scenery background** — a sharp vector flight scene (blue sky, drifting clouds, flying plane, Delhi → Bengaluru route arc and a floating LKO → BLR boarding pass) animates as the page wallpaper behind the content at any screen size, including 4K; cards stay readable with a near-opaque background, and the wallpaper dims in dark mode
 - **Flight Status** — `/flight-status`: check a flight's timetable,
   aircraft and starting fare by flight number (schedule-based, not a
   live airline feed)
