@@ -296,6 +296,20 @@ tbody tr:hover{background:var(--surface2)}
 #authForm .field input{padding:13px 14px;border-radius:12px;font-size:1rem}
 #authSubmit{width:100%;padding:13px;font-size:1.02rem;border-radius:12px;margin-top:6px}
 #authMsg{text-align:center}
+
+ /* Edge system: one consistent corner language everywhere */
+ :root{--radius:20px}
+ body{overflow-x:hidden}
+ .card{border-radius:20px}
+ .hero,.hero-copy{border-radius:24px}
+ button,.btn{border-radius:12px}
+ .nav button{border-radius:999px}
+ input,select,textarea{border-radius:12px}
+ .brand-mark{border-radius:12px}
+ #view-auth .card{border-radius:20px}
+ .flight-mid .line{border-radius:999px}
+ .hero-img img{border-radius:20px}
+ @media (max-width:600px){ .wrap{padding-left:14px;padding-right:14px} }
 </style>
 </head>
 <body>
