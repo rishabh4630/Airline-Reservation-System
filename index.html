@@ -394,15 +394,13 @@ footer{margin-top:48px;border-top:1px solid var(--line);padding-top:18px;color:v
 
   <!-- ============ LOGIN / SIGN UP (Admin & Customer) ============ -->
   <section class="view" id="view-auth">
-    <div class="sec-head"><div><h2>Login / Sign Up</h2><p>Customers book their own tickets. Admins manage all bookings and reports. Each role has its own login page.</p></div></div>
+    <div class="sec-head"><div><h2>Login / Sign Up</h2><p>Sign up as a customer to book tickets. Logging in with the owner email automatically signs you in as an admin — there is no separate admin login page.</p></div></div>
     <div class="card" style="max-width:560px">
       <div id="authTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-        <button class="btn ghost small" data-authmode="customer-login">Customer Login</button>
-        <button class="btn ghost small" data-authmode="customer-signup">Customer Sign Up</button>
-        <button class="btn ghost small" data-authmode="admin-login">Admin Login</button>
-        <button class="btn ghost small" data-authmode="admin-signup">Admin Sign Up</button>
+        <button class="btn ghost small" data-authmode="customer-login">Login</button>
+        <button class="btn ghost small" data-authmode="customer-signup">Sign Up</button>
       </div>
-      <h3 id="authTitle" style="margin-top:0">Customer Login</h3>
+      <h3 id="authTitle" style="margin-top:0">Login</h3>
       <form id="authForm">
         <div class="field" id="authNameField"><label for="authName">Full name</label><input id="authName" placeholder="e.g. Aarav Sharma"></div>
         <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" required placeholder="you@example.com"></div>
@@ -503,8 +501,10 @@ var refunds = [];
    demo are still in-memory and reset on reload, as before. Passwords
    are stored as a simple demo hash, never in plain text — this is a
    demo, not production security. The Flask version uses proper hashing. */
+var OWNER_EMAIL = "rishabhsingh4630@gmail.com";
 var currentUser = null;
 var authMode = "customer-login";
+function effectiveRole(email, storedRole){ return email === OWNER_EMAIL ? "admin" : storedRole; }
 function demoHash(str){ var h = 5381; for(var i=0;i<str.length;i++){ h = ((h<<5)+h+str.charCodeAt(i))>>>0; } return "h"+h.toString(16); }
 function loadUsers(){ try{ return JSON.parse(localStorage.getItem("horizon_demo_users") || "[]"); }catch(e){ return []; } }
 function saveUsers(u){ localStorage.setItem("horizon_demo_users", JSON.stringify(u)); }
@@ -535,10 +535,8 @@ function updateAuthUI(){
 }
 function authTitles(){
   return {
-    "customer-login": ["Customer Login", "Login"],
-    "customer-signup": ["Customer Sign Up", "Create Customer Account"],
-    "admin-login": ["Admin Login", "Login as Admin"],
-    "admin-signup": ["Admin Sign Up", "Create Admin Account"]
+    "customer-login": ["Login", "Login"],
+    "customer-signup": ["Sign Up", "Create Account"]
   };
 }
 function setAuthMode(mode){
@@ -601,7 +599,7 @@ function showView(name){
     return;
   }
   if(name === "reports" && (!currentUser || currentUser.role !== "admin")){
-    if(!currentUser){ toast("Please login as admin first."); showAuth("admin-login"); }
+    if(!currentUser){ toast("Please login with the owner account first."); showAuth("customer-login"); }
     else { toast("Only admins can open Reports."); }
     return;
   }
@@ -1036,7 +1034,7 @@ document.getElementById("authTabs").addEventListener("click", function(e){
 document.getElementById("authForm").addEventListener("submit", function(e){
   e.preventDefault();
   var isSignup = authMode.indexOf("signup") !== -1;
-  var role = authMode.indexOf("admin") === 0 ? "admin" : "customer";
+  var role = "customer";  // owner email below overrides this to admin
   var name = document.getElementById("authName").value.trim();
   var email = document.getElementById("authEmail").value.trim().toLowerCase();
   var pass = document.getElementById("authPass").value;
@@ -1047,15 +1045,16 @@ document.getElementById("authForm").addEventListener("submit", function(e){
   if(isSignup){
     if(!name){ msg.style.display="block"; msg.textContent = "Please enter your full name."; return; }
     if(existing){ msg.style.display="block"; msg.textContent = "This email is already registered. Please login instead."; return; }
-    var nu = {name:name, email:email, passHash:demoHash(pass), role:role};
+    var nu = {name:name, email:email, passHash:demoHash(pass), role:effectiveRole(email, role)};
     users.push(nu); saveUsers(users);
     currentUser = {name:nu.name, email:nu.email, role:nu.role}; saveSession(currentUser);
     updateAuthUI(); toast("Welcome, " + name + "! Your " + role + " account has been created.");
     showView("dashboard");
   } else {
     if(!existing || existing.passHash !== demoHash(pass)){ msg.style.display="block"; msg.textContent = "Invalid email or password. Please try again."; return; }
-    if(existing.role !== role){ msg.style.display="block"; msg.textContent = "This is a " + existing.role + " account. Please use " + (existing.role === "admin" ? "Admin" : "Customer") + " Login."; return; }
-    currentUser = {name:existing.name, email:existing.email, role:existing.role}; saveSession(currentUser);
+    currentUser = {name:existing.name, email:existing.email, role:effectiveRole(existing.email, existing.role)};
+    if(currentUser.role !== existing.role){ users.forEach(function(u){ if(u.email===email) u.role = "admin"; }); saveUsers(users); }
+    saveSession(currentUser);
     updateAuthUI(); toast("Welcome back, " + existing.name + "!");
     showView("dashboard");
   }
