@@ -295,7 +295,7 @@ LAYOUT = """
   :root{--bg:#091423;--surface:#101f33;--surface2:#16293f;--ink:#edf3f9;--muted:#a4b6c9;--faint:#75899f;
    --navy:#041a33;--navy2:#0a3a6b;--accent:#4aa8ec;--accent-soft:#0d2a4a;--amber:#f0a13c;
    --danger:#ff8a7a;--danger-soft:#3d1a16;--ok:#5fd68f;--ok-soft:#14301f;
-   --line:#22344c;--line2:#22344c;--shadow:0 10px 30px rgba(0,0,0,.35)}}
+   --line:#2f4566;--line2:#2f4566;--shadow:0 10px 30px rgba(0,0,0,.35)}}
  *{box-sizing:border-box}
  body{font-family:"Archivo",system-ui,-apple-system,'Segoe UI',Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
  a{color:var(--accent)}
@@ -328,7 +328,7 @@ LAYOUT = """
  .flash{background:var(--ok-soft);border:1px solid var(--ok);padding:12px 14px;border-radius:11px;margin-bottom:14px}
  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
  .grid .card{padding:16px 16px 13px}
- .stat{font-size:1.65rem;font-weight:900;line-height:1;color:var(--navy)}
+ .stat{font-size:1.65rem;font-weight:900;line-height:1;color:var(--accent)}
  /* Premium polish: soft entrance, hover lift, smooth buttons, focus rings */
  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
  main>*{animation:rise .45s ease both}
@@ -360,7 +360,7 @@ LAYOUT = """
  .search-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end}
  .search-form input,.search-form select{width:100%;margin:4px 0 0}
  .route-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
- .route-card h3{margin:0 0 4px} .route-card .from-fare{font-size:1.4rem;font-weight:900;color:var(--navy)}
+ .route-card h3{margin:0 0 4px} .route-card .from-fare{font-size:1.4rem;font-weight:900;color:var(--accent)}
  .trust-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
  .faq details{border-bottom:1px solid var(--line2);padding:10px 0} .faq summary{font-weight:700;cursor:pointer}
  @media print{header,.noprint{display:none}}
