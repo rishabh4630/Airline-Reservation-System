@@ -329,6 +329,22 @@ LAYOUT = """
  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
  .grid .card{padding:16px 16px 13px}
  .stat{font-size:1.65rem;font-weight:900;line-height:1;color:var(--navy)}
+ /* Premium polish: soft entrance, hover lift, smooth buttons, focus rings */
+ @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+ main>*{animation:rise .45s ease both}
+ main>*:nth-child(2){animation-delay:.05s} main>*:nth-child(3){animation-delay:.1s}
+ .card{transition:transform .2s ease,box-shadow .2s ease}
+ .card:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(15,46,77,.16)}
+ .hero{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 60%,#1d5c54 100%);position:relative;overflow:hidden}
+ .hero:after{content:"✈";position:absolute;right:18px;bottom:-24px;font-size:9rem;opacity:.08;transform:rotate(-18deg)}
+ button,.btn{transition:transform .15s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 4px 14px rgba(14,122,109,.25)}
+ button:hover,.btn:hover{transform:translateY(-1px)}
+ button:active,.btn:active{transform:translateY(0) scale(.98)}
+ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+ tr{transition:background .15s ease} tbody tr:hover{background:var(--surface2)}
+ nav a{transition:background .15s ease,color .15s ease}
+ .brand-mark{transition:transform .25s ease} .brand:hover .brand-mark{transform:rotate(-12deg) scale(1.06)}
+ @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
  @media print{header,.noprint{display:none}}
 </style></head><body>
 <header><div class="topbar">
