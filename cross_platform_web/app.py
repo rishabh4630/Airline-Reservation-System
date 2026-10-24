@@ -114,6 +114,7 @@ def init_db(seed=True):
             name          TEXT NOT NULL,
             email         TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
+            role          TEXT NOT NULL DEFAULT 'customer',  -- customer / admin
             created_on    TEXT NOT NULL
         );
         """
@@ -123,6 +124,9 @@ def init_db(seed=True):
     cols = [r[1] for r in db.execute("PRAGMA table_info(reservations)")]
     if "user_id" not in cols:
         db.execute("ALTER TABLE reservations ADD COLUMN user_id INTEGER REFERENCES users(id)")
+    ucols = [r[1] for r in db.execute("PRAGMA table_info(users)")]
+    if "role" not in ucols:
+        db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'")
     if seed and db.execute("SELECT COUNT(*) FROM sectors").fetchone()[0] == 0:
         db.executemany(
             "INSERT INTO sectors VALUES (?,?,?,?)",
@@ -218,7 +222,7 @@ def new_pnr(db):
 def current_user():
     if "user_id" not in session:
         return None
-    return get_db().execute("SELECT id, name, email FROM users WHERE id=?", (session["user_id"],)).fetchone()
+    return get_db().execute("SELECT id, name, email, role FROM users WHERE id=?", (session["user_id"],)).fetchone()
 
 
 def login_required(view):
@@ -229,6 +233,34 @@ def login_required(view):
             return redirect(url_for("login", next=request.path))
         return view(*args, **kwargs)
     return wrapped
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please login as admin first.")
+            return redirect(url_for("admin_login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can open this page.")
+            return redirect(url_for("home"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def owns_booking(row):
+    # Admins can access any booking; customers only their own.
+    # Bookings made before roles existed have user_id NULL and are
+    # treated as admin-visible only, so a customer cannot claim them.
+    return session.get("user_role") == "admin" or (
+        row["user_id"] is not None and row["user_id"] == session.get("user_id")
+    )
+
+
+def start_session(user):
+    session["user_id"] = user["id"]
+    session["user_name"] = user["name"]
+    session["user_role"] = user["role"]
 
 
 # --------------------------------------------------------------------------
@@ -300,11 +332,12 @@ LAYOUT = """
  <a href="{{ url_for('aircraft') }}">Aircraft</a>
  <a href="{{ url_for('reports') }}">Reports</a>
  {% if session.get('user_id') %}
-  <span class="hello">Hello, {{ session.get('user_name') }}</span>
+  <span class="hello">Hello, {{ session.get('user_name') }} ({{ session.get('user_role') }})</span>
   <a href="{{ url_for('logout') }}">Logout</a>
  {% else %}
   <a href="{{ url_for('login') }}">Login</a>
   <a href="{{ url_for('register') }}">Sign Up</a>
+  <a href="{{ url_for('admin_login') }}">Admin</a>
  {% endif %}
  </nav>
 </div></header>
@@ -347,23 +380,25 @@ def register():
         else:
             db = get_db()
             cur = db.execute(
-                "INSERT INTO users (name, email, password_hash, created_on) VALUES (?,?,?,?)",
-                (name, email, generate_password_hash(password), date.today().isoformat()),
+                "INSERT INTO users (name, email, password_hash, role, created_on) VALUES (?,?,?,?,?)",
+                (name, email, generate_password_hash(password), "customer", date.today().isoformat()),
             )
             db.commit()
             session["user_id"] = cur.lastrowid
             session["user_name"] = name
+            session["user_role"] = "customer"
             flash(f"Welcome, {name}! Your account has been created.")
             return redirect(url_for("home"))
     body = """
-    <div class="card"><h2>Sign Up</h2><form method="post">
+    <div class="card"><h2>Customer Sign Up</h2><form method="post">
     <label>Full Name<input name="name" required></label>
     <label>Email<input name="email" type="email" required></label>
     <label>Password<input name="password" type="password" minlength="6" required></label>
     <button>Create Account</button></form>
-    <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
+    <p>Already have an account? <a href="{{ url_for('login') }}">Customer Login</a> |
+    Are you an admin? <a href="{{ url_for('admin_login') }}">Admin Login</a></p></div>
     """
-    return page("Sign Up", body)
+    return page("Customer Sign Up", body)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -371,20 +406,82 @@ def login():
     if request.method == "POST":
         email = request.form["email"].strip().lower()
         user = get_db().execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        if user and check_password_hash(user["password_hash"], request.form["password"]):
-            session["user_id"] = user["id"]
-            session["user_name"] = user["name"]
+        if user and user["role"] != "customer":
+            flash("This is an admin account. Please use Admin Login.")
+        elif user and check_password_hash(user["password_hash"], request.form["password"]):
+            start_session(user)
             flash(f"Welcome back, {user['name']}!")
             return redirect(request.args.get("next") or url_for("home"))
-        flash("Invalid email or password. Please try again.")
+        else:
+            flash("Invalid email or password. Please try again.")
     body = """
-    <div class="card"><h2>Login</h2><form method="post">
+    <div class="card"><h2>Customer Login</h2><form method="post">
     <label>Email<input name="email" type="email" required></label>
     <label>Password<input name="password" type="password" required></label>
     <button>Login</button></form>
-    <p>Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p></div>
+    <p>Don't have an account? <a href="{{ url_for('register') }}">Customer Sign Up</a> |
+    Are you an admin? <a href="{{ url_for('admin_login') }}">Admin Login</a></p></div>
     """
-    return page("Login", body)
+    return page("Customer Login", body)
+
+
+@app.route("/admin/register", methods=["GET", "POST"])
+def admin_register():
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        email = request.form["email"].strip().lower()
+        password = request.form["password"]
+        if len(password) < 6:
+            flash("Password must be at least 6 characters.")
+        elif get_db().execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
+            flash("This email is already registered. Please login instead.")
+            return redirect(url_for("admin_login"))
+        else:
+            db = get_db()
+            cur = db.execute(
+                "INSERT INTO users (name, email, password_hash, role, created_on) VALUES (?,?,?,?,?)",
+                (name, email, generate_password_hash(password), "admin", date.today().isoformat()),
+            )
+            db.commit()
+            session["user_id"] = cur.lastrowid
+            session["user_name"] = name
+            session["user_role"] = "admin"
+            flash(f"Welcome, {name}! Your admin account has been created.")
+            return redirect(url_for("home"))
+    body = """
+    <div class="card"><h2>Admin Sign Up</h2><form method="post">
+    <label>Full Name<input name="name" required></label>
+    <label>Email<input name="email" type="email" required></label>
+    <label>Password<input name="password" type="password" minlength="6" required></label>
+    <button>Create Admin Account</button></form>
+    <p>Already an admin? <a href="{{ url_for('admin_login') }}">Admin Login</a> |
+    Customer? <a href="{{ url_for('register') }}">Customer Sign Up</a></p></div>
+    """
+    return page("Admin Sign Up", body)
+
+
+@app.route("/admin/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        user = get_db().execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if user and user["role"] != "admin":
+            flash("This is a customer account. Please use Customer Login.")
+        elif user and check_password_hash(user["password_hash"], request.form["password"]):
+            start_session(user)
+            flash(f"Welcome back, {user['name']} (Admin)!")
+            return redirect(request.args.get("next") or url_for("home"))
+        else:
+            flash("Invalid email or password. Please try again.")
+    body = """
+    <div class="card"><h2>Admin Login</h2><form method="post">
+    <label>Email<input name="email" type="email" required></label>
+    <label>Password<input name="password" type="password" required></label>
+    <button>Login as Admin</button></form>
+    <p>New admin? <a href="{{ url_for('admin_register') }}">Admin Sign Up</a> |
+    Customer? <a href="{{ url_for('login') }}">Customer Login</a></p></div>
+    """
+    return page("Admin Login", body)
 
 
 @app.route("/logout")
@@ -437,6 +534,9 @@ def sectors():
         if "user_id" not in session:
             flash("Please login first to continue.")
             return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can add or edit master data.")
+            return redirect(url_for("home"))
         db.execute(
             "INSERT OR REPLACE INTO sectors VALUES (?,?,?,?)",
             (request.form["sector_id"].strip().upper(), request.form["origin"].strip(),
@@ -467,6 +567,9 @@ def aircraft():
         if "user_id" not in session:
             flash("Please login first to continue.")
             return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can add or edit master data.")
+            return redirect(url_for("home"))
         db.execute(
             "INSERT OR REPLACE INTO aircraft VALUES (?,?,?,?,?)",
             (request.form["aircraft_id"].strip().upper(), request.form["description"].strip(),
@@ -499,6 +602,9 @@ def flights():
         if "user_id" not in session:
             flash("Please login first to continue.")
             return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can add or edit master data.")
+            return redirect(url_for("home"))
         db.execute(
             "INSERT OR REPLACE INTO flights VALUES (?,?,?,?,?,?,?,?,?,?)",
             (request.form["flight_no"].strip().upper(), request.form["sector_id"], request.form["aircraft_id"],
@@ -549,6 +655,9 @@ def schedule():
         if "user_id" not in session:
             flash("Please login first to continue.")
             return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can add or edit master data.")
+            return redirect(url_for("home"))
         db.execute(
             "INSERT OR IGNORE INTO scheduled_flights (flight_no, flight_date) VALUES (?,?)",
             (request.form["flight_no"], request.form["flight_date"]),
@@ -584,17 +693,17 @@ def schedule():
 @login_required
 def reservations():
     db = get_db()
-    if request.args.get("mine") == "1":
+    if session.get("user_role") == "admin" and request.args.get("mine") != "1":
+        rows = db.execute(
+            """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
+                      flight_no, travel_date, fare, status FROM reservations ORDER BY created_on DESC"""
+        ).fetchall()
+    else:
         rows = db.execute(
             """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
                       flight_no, travel_date, fare, status FROM reservations
                WHERE user_id=? ORDER BY created_on DESC""",
             (session["user_id"],),
-        ).fetchall()
-    else:
-        rows = db.execute(
-            """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
-                      flight_no, travel_date, fare, status FROM reservations ORDER BY created_on DESC"""
         ).fetchall()
     extra = ""
     if rows:
@@ -679,6 +788,9 @@ def ticket(pnr):
     if r is None:
         flash("PNR not found.")
         return redirect(url_for("reservations"))
+    if not owns_booking(r):
+        flash("You can only view your own tickets.")
+        return redirect(url_for("reservations"))
     body = f"""
     <div class="card"><h2 style="text-align:center">HORIZON AIRWAYS — E-Ticket</h2>
     <table>
@@ -707,7 +819,9 @@ def cancel():
     if request.method == "POST":
         pnr = request.form["pnr"].strip().upper()
         r = db.execute("SELECT * FROM reservations WHERE pnr=?", (pnr,)).fetchone()
-        if r is None:
+        if r is not None and not owns_booking(r):
+            flash("You can only cancel your own reservations.")
+        elif r is None:
             flash("PNR Number not found. Please re-enter.")
         elif r["status"] == "Cancelled":
             flash("The ticket is already cancelled.")
@@ -766,6 +880,9 @@ def refund_receipt(pnr):
     if r is None:
         flash("PNR not found.")
         return redirect(url_for("home"))
+    if not owns_booking(r):
+        flash("You can only view your own refund receipts.")
+        return redirect(url_for("reservations"))
     body = f"""
     <div class="card"><h2 style="text-align:center">HORIZON AIRWAYS — Refund Receipt</h2>
     <table>
@@ -783,7 +900,7 @@ def refund_receipt(pnr):
 # Reports (from the original Main Menu -> Reports)
 # --------------------------------------------------------------------------
 @app.route("/reports")
-@login_required
+@admin_required
 def reports():
     db = get_db()
     confirmed = db.execute(
