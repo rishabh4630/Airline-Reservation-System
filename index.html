@@ -283,6 +283,19 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 tr{transition:background .15s ease}
 tbody tr:hover{background:var(--surface2)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Premium auth card */
+#view-auth .card{max-width:480px;margin:28px auto;padding:30px 30px 24px;border-radius:22px;box-shadow:0 20px 44px rgba(15,46,77,.16);position:relative;overflow:hidden}
+#view-auth .card:before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--navy),var(--accent),var(--amber))}
+.auth-badge{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--navy);font-weight:800;font-size:.82rem;padding:7px 12px;border-radius:999px;margin-bottom:14px}
+#authTitle{font-size:1.7rem;margin:0 0 6px}
+.auth-sub{color:var(--muted);margin:0 0 20px;line-height:1.55}
+#authTabs{background:var(--surface2);border-radius:999px;padding:5px;margin-bottom:20px}
+#authTabs .btn{border-radius:999px;box-shadow:none;flex:1}
+#authTabs .btn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+#authForm .field input{padding:13px 14px;border-radius:12px;font-size:1rem}
+#authSubmit{width:100%;padding:13px;font-size:1.02rem;border-radius:12px;margin-top:6px}
+#authMsg{text-align:center}
 </style>
 </head>
 <body>
@@ -414,17 +427,20 @@ tbody tr:hover{background:var(--surface2)}
   <!-- ============ LOGIN / SIGN UP (Admin & Customer) ============ -->
   <section class="view" id="view-auth">
     <div class="sec-head"><div><h2>Login / Sign Up</h2><p>Sign up as a customer to book tickets. Logging in with the owner email automatically signs you in as an admin — there is no separate admin login page.</p></div></div>
-    <div class="card" style="max-width:560px">
-      <div id="authTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    <div class="card">
+      <div class="auth-badge">✈ Horizon Airways</div>
+      <div id="authTabs" style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn ghost small" data-authmode="customer-login">Login</button>
         <button class="btn ghost small" data-authmode="customer-signup">Sign Up</button>
       </div>
-      <h3 id="authTitle" style="margin-top:0">Login</h3>
+      <h3 id="authTitle">Login</h3>
+      <p class="auth-sub">Book flights, view your tickets and manage your reservations.</p>
       <form id="authForm">
         <div class="field" id="authNameField"><label for="authName">Full name</label><input id="authName" placeholder="e.g. Aarav Sharma"></div>
         <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" required placeholder="you@example.com"></div>
         <div class="field"><label for="authPass">Password</label><input id="authPass" type="password" required minlength="6" placeholder="At least 6 characters"></div>
         <button class="btn amber" id="authSubmit" type="submit">Login</button>
+      <p style="text-align:center;color:var(--faint);font-size:.85rem;line-height:1.5">Logging in with the owner email signs you in as admin automatically.</p>
       </form>
       <p id="authMsg" style="display:none;color:var(--muted);font-size:.9rem"></p>
       <p style="color:var(--muted);font-size:.85rem;line-height:1.6">Demo only: accounts are saved in this browser only (localStorage), and bookings still reset when the page reloads, like the rest of this demo. Passwords are stored as a simple demo hash, never in plain text — this is not production-grade security. For real accounts with a saved database, use the Flask version in <span class="mono">cross_platform_web/</span>.</p>
