@@ -55,6 +55,7 @@ Users can manage flights and schedules, book a reservation and get a PNR, print 
 - 🛫 Flight Status — check a flight's timetable, aircraft and starting fare by flight number
 - 🔀 1-stop connecting flights — when no direct flight exists (e.g. Varanasi → Bengaluru), the search shows a via-Delhi option with total fare, journey time and layover (booked as 2 separate bookings, one per leg)
 - **All-India routes** — 30 airports and 86 demo flights across India (see cross_platform_web README for the full city list); new routes use demo fares/timings, not live airline data.
+- **Premium 4K video background** — a cinematic 4K airplane-window video (cloudscape from above, 3840x2160, 60 sec loop, muted) plays as the page wallpaper, with a blue gradient overlay so text stays readable; the vector flight scene (route arc + boarding pass) stays behind it as fallback while the video buffers, and the video is hidden for users who prefer reduced motion
 - 🎨 Premium blue-white design with dark-mode support, FAQ and transparent fares (the ticket fare is exactly the flight's class fare)
 
 ---
