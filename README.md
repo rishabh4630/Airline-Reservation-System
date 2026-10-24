@@ -4,9 +4,11 @@
 
 **Try it online — no installation needed:**
 
-[Live Demo — Airline Reservation System](https://muse.ai/s/airline-reservation-system-2-xvxh64xqxlhexp8n/suhs7nFHO6tdL1s90lP-tMgbq75838549muTtcOw1Lc)
+[Live Demo — Airline Reservation System](https://rishabh4630.github.io/Airline-Reservation-System/)
 
-> This is a browser demo of the web version. You can book flights, print tickets, cancel reservations and view reports right in the browser. Demo data is not saved — for the full version with a saved database, run the web version below.
+> This is a browser demo of the web version, hosted on GitHub Pages — it works for anyone, no account or signup needed. You can book flights, print tickets, cancel reservations and view reports right in the browser. Demo data is not saved — for the full version with a saved database, run the web version below.
+>
+> Note: if the link shows a 404 the first time, enable Pages once in the repo: Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch: gh-pages → Save.
 
 ## Project Overview
 The Airline Reservation System is a software application designed to manage airline reservations and provide a simple interface for handling flight-related operations.
