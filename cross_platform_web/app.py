@@ -163,6 +163,193 @@ def init_db(seed=True):
             "INSERT OR IGNORE INTO scheduled_flights (flight_no, flight_date) VALUES (?,?)",
             [("HZ101", today), ("HZ202", today), ("HZ303", today), ("HZ404", today)],
         )
+
+    # All-India expansion (user-supplied airport/route list, 2026-10-24):
+    # INSERT OR IGNORE so existing databases also gain the new routes
+    # without touching the original 4 flights, and demo fares are labelled
+    # as demo in the UI (these are NOT live airline fares/timings).
+    db.executemany(
+        "INSERT OR IGNORE INTO sectors VALUES (?,?,?,?)",
+        [
+                ("DEL-BOM", "Delhi", "Mumbai", "Delhi to Mumbai"),
+                ("DEL-LKO", "Delhi", "Lucknow", "Delhi to Lucknow"),
+                ("DEL-BLR", "Delhi", "Bengaluru", "Delhi to Bengaluru"),
+                ("DEL-HYD", "Delhi", "Hyderabad", "Delhi to Hyderabad"),
+                ("DEL-MAA", "Delhi", "Chennai", "Delhi to Chennai"),
+                ("DEL-CCU", "Delhi", "Kolkata", "Delhi to Kolkata"),
+                ("DEL-JAI", "Delhi", "Jaipur", "Delhi to Jaipur"),
+                ("DEL-PAT", "Delhi", "Patna", "Delhi to Patna"),
+                ("BOM-DEL", "Mumbai", "Delhi", "Mumbai to Delhi"),
+                ("BOM-LKO", "Mumbai", "Lucknow", "Mumbai to Lucknow"),
+                ("BOM-AMD", "Mumbai", "Ahmedabad", "Mumbai to Ahmedabad"),
+                ("BOM-GOA", "Mumbai", "Goa", "Mumbai to Goa"),
+                ("BOM-BLR", "Mumbai", "Bengaluru", "Mumbai to Bengaluru"),
+                ("BOM-COK", "Mumbai", "Kochi", "Mumbai to Kochi"),
+                ("BOM-CCU", "Mumbai", "Kolkata", "Mumbai to Kolkata"),
+                ("LKO-DEL", "Lucknow", "Delhi", "Lucknow to Delhi"),
+                ("LKO-BOM", "Lucknow", "Mumbai", "Lucknow to Mumbai"),
+                ("LKO-BLR", "Lucknow", "Bengaluru", "Lucknow to Bengaluru"),
+                ("LKO-HYD", "Lucknow", "Hyderabad", "Lucknow to Hyderabad"),
+                ("LKO-CCU", "Lucknow", "Kolkata", "Lucknow to Kolkata"),
+                ("LKO-AMD", "Lucknow", "Ahmedabad", "Lucknow to Ahmedabad"),
+                ("BLR-DEL", "Bengaluru", "Delhi", "Bengaluru to Delhi"),
+                ("BLR-BOM", "Bengaluru", "Mumbai", "Bengaluru to Mumbai"),
+                ("BLR-MAA", "Bengaluru", "Chennai", "Bengaluru to Chennai"),
+                ("BLR-HYD", "Bengaluru", "Hyderabad", "Bengaluru to Hyderabad"),
+                ("BLR-PNQ", "Bengaluru", "Pune", "Bengaluru to Pune"),
+                ("BLR-COK", "Bengaluru", "Kochi", "Bengaluru to Kochi"),
+                ("BLR-CCU", "Bengaluru", "Kolkata", "Bengaluru to Kolkata"),
+                ("MAA-DEL", "Chennai", "Delhi", "Chennai to Delhi"),
+                ("MAA-BOM", "Chennai", "Mumbai", "Chennai to Mumbai"),
+                ("MAA-BLR", "Chennai", "Bengaluru", "Chennai to Bengaluru"),
+                ("MAA-HYD", "Chennai", "Hyderabad", "Chennai to Hyderabad"),
+                ("MAA-CCU", "Chennai", "Kolkata", "Chennai to Kolkata"),
+                ("MAA-COK", "Chennai", "Kochi", "Chennai to Kochi"),
+                ("CCU-DEL", "Kolkata", "Delhi", "Kolkata to Delhi"),
+                ("CCU-BOM", "Kolkata", "Mumbai", "Kolkata to Mumbai"),
+                ("CCU-LKO", "Kolkata", "Lucknow", "Kolkata to Lucknow"),
+                ("CCU-BLR", "Kolkata", "Bengaluru", "Kolkata to Bengaluru"),
+                ("CCU-MAA", "Kolkata", "Chennai", "Kolkata to Chennai"),
+                ("CCU-GAU", "Kolkata", "Guwahati", "Kolkata to Guwahati"),
+                ("HYD-DEL", "Hyderabad", "Delhi", "Hyderabad to Delhi"),
+                ("JAI-DEL", "Jaipur", "Delhi", "Jaipur to Delhi"),
+                ("PAT-DEL", "Patna", "Delhi", "Patna to Delhi"),
+                ("AMD-BOM", "Ahmedabad", "Mumbai", "Ahmedabad to Mumbai"),
+                ("GOA-BOM", "Goa", "Mumbai", "Goa to Mumbai"),
+                ("COK-BOM", "Kochi", "Mumbai", "Kochi to Mumbai"),
+                ("BLR-LKO", "Bengaluru", "Lucknow", "Bengaluru to Lucknow"),
+                ("HYD-LKO", "Hyderabad", "Lucknow", "Hyderabad to Lucknow"),
+                ("AMD-LKO", "Ahmedabad", "Lucknow", "Ahmedabad to Lucknow"),
+                ("HYD-BLR", "Hyderabad", "Bengaluru", "Hyderabad to Bengaluru"),
+                ("PNQ-BLR", "Pune", "Bengaluru", "Pune to Bengaluru"),
+                ("COK-BLR", "Kochi", "Bengaluru", "Kochi to Bengaluru"),
+                ("BOM-MAA", "Mumbai", "Chennai", "Mumbai to Chennai"),
+                ("HYD-MAA", "Hyderabad", "Chennai", "Hyderabad to Chennai"),
+                ("COK-MAA", "Kochi", "Chennai", "Kochi to Chennai"),
+                ("GAU-CCU", "Guwahati", "Kolkata", "Guwahati to Kolkata"),
+                ("DEL-VNS", "Delhi", "Varanasi", "Delhi to Varanasi"),
+                ("VNS-DEL", "Varanasi", "Delhi", "Varanasi to Delhi"),
+                ("DEL-SXR", "Delhi", "Srinagar", "Delhi to Srinagar"),
+                ("SXR-DEL", "Srinagar", "Delhi", "Srinagar to Delhi"),
+                ("DEL-DED", "Delhi", "Dehradun", "Delhi to Dehradun"),
+                ("DED-DEL", "Dehradun", "Delhi", "Dehradun to Delhi"),
+                ("DEL-IXC", "Delhi", "Chandigarh", "Delhi to Chandigarh"),
+                ("IXC-DEL", "Chandigarh", "Delhi", "Chandigarh to Delhi"),
+                ("DEL-BBI", "Delhi", "Bhubaneswar", "Delhi to Bhubaneswar"),
+                ("BBI-DEL", "Bhubaneswar", "Delhi", "Bhubaneswar to Delhi"),
+                ("DEL-IDR", "Delhi", "Indore", "Delhi to Indore"),
+                ("IDR-DEL", "Indore", "Delhi", "Indore to Delhi"),
+                ("DEL-NAG", "Delhi", "Nagpur", "Delhi to Nagpur"),
+                ("NAG-DEL", "Nagpur", "Delhi", "Nagpur to Delhi"),
+                ("DEL-IXR", "Delhi", "Ranchi", "Delhi to Ranchi"),
+                ("IXR-DEL", "Ranchi", "Delhi", "Ranchi to Delhi"),
+                ("DEL-RPR", "Delhi", "Raipur", "Delhi to Raipur"),
+                ("RPR-DEL", "Raipur", "Delhi", "Raipur to Delhi"),
+                ("DEL-ATQ", "Delhi", "Amritsar", "Delhi to Amritsar"),
+                ("ATQ-DEL", "Amritsar", "Delhi", "Amritsar to Delhi"),
+                ("DEL-CJB", "Delhi", "Coimbatore", "Delhi to Coimbatore"),
+                ("CJB-DEL", "Coimbatore", "Delhi", "Coimbatore to Delhi"),
+                ("DEL-VTZ", "Delhi", "Visakhapatnam", "Delhi to Visakhapatnam"),
+                ("VTZ-DEL", "Visakhapatnam", "Delhi", "Visakhapatnam to Delhi"),
+                ("DEL-TIR", "Delhi", "Tirupati", "Delhi to Tirupati"),
+                ("TIR-DEL", "Tirupati", "Delhi", "Tirupati to Delhi"),
+                ("DEL-IXA", "Delhi", "Agartala", "Delhi to Agartala"),
+                ("IXA-DEL", "Agartala", "Delhi", "Agartala to Delhi"),
+                ("DEL-IXZ", "Delhi", "Port Blair", "Delhi to Port Blair"),
+                ("IXZ-DEL", "Port Blair", "Delhi", "Port Blair to Delhi"),
+        ],
+    )
+    db.executemany(
+        "INSERT OR IGNORE INTO flights VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+                ("HZ501", "DEL-BOM", "A320", "05:00", "06:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ502", "DEL-LKO", "B737", "06:35", "08:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ503", "DEL-BLR", "ATR72", "08:10", "10:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ504", "DEL-HYD", "A320", "09:45", "12:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ505", "DEL-MAA", "B737", "11:20", "14:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ506", "DEL-CCU", "ATR72", "12:55", "16:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ507", "DEL-JAI", "A320", "14:30", "16:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ508", "DEL-PAT", "B737", "16:05", "18:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ509", "BOM-DEL", "ATR72", "17:40", "20:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ510", "BOM-LKO", "A320", "19:15", "22:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ511", "BOM-AMD", "B737", "05:50", "09:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ512", "BOM-GOA", "ATR72", "07:25", "11:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ513", "BOM-BLR", "A320", "09:00", "10:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ514", "BOM-COK", "B737", "10:35", "12:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ515", "BOM-CCU", "ATR72", "12:10", "14:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ516", "LKO-DEL", "A320", "13:45", "16:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ517", "LKO-BOM", "B737", "15:20", "18:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ518", "LKO-BLR", "ATR72", "16:55", "20:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ519", "LKO-HYD", "A320", "18:30", "20:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ520", "LKO-CCU", "B737", "05:05", "07:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ521", "LKO-AMD", "ATR72", "06:40", "09:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ522", "BLR-DEL", "A320", "08:15", "11:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ523", "BLR-BOM", "B737", "09:50", "13:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ524", "BLR-MAA", "ATR72", "11:25", "15:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ525", "BLR-HYD", "A320", "13:00", "14:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ526", "BLR-PNQ", "B737", "14:35", "16:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ527", "BLR-COK", "ATR72", "16:10", "18:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ528", "BLR-CCU", "A320", "17:45", "20:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ529", "MAA-DEL", "B737", "19:20", "22:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ530", "MAA-BOM", "ATR72", "05:55", "09:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ531", "MAA-BLR", "A320", "07:30", "09:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ532", "MAA-HYD", "B737", "09:05", "11:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ533", "MAA-CCU", "ATR72", "10:40", "13:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ534", "MAA-COK", "A320", "12:15", "15:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ535", "CCU-DEL", "B737", "13:50", "17:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ536", "CCU-BOM", "ATR72", "15:25", "19:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ537", "CCU-LKO", "A320", "17:00", "18:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ538", "CCU-BLR", "B737", "18:35", "20:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ539", "CCU-MAA", "ATR72", "05:10", "07:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ540", "CCU-GAU", "A320", "06:45", "09:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ541", "HYD-DEL", "B737", "08:20", "11:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ542", "JAI-DEL", "ATR72", "09:55", "13:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ543", "PAT-DEL", "A320", "11:30", "13:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ544", "AMD-BOM", "B737", "13:05", "15:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ545", "GOA-BOM", "ATR72", "14:40", "17:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ546", "COK-BOM", "A320", "16:15", "19:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ547", "BLR-LKO", "B737", "17:50", "21:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ548", "HYD-LKO", "ATR72", "19:25", "23:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ549", "AMD-LKO", "A320", "06:00", "07:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ550", "HYD-BLR", "B737", "07:35", "09:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ551", "PNQ-BLR", "ATR72", "09:10", "11:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ552", "COK-BLR", "A320", "10:45", "13:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ553", "BOM-MAA", "B737", "12:20", "15:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ554", "HYD-MAA", "ATR72", "13:55", "17:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ555", "COK-MAA", "A320", "15:30", "17:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ556", "GAU-CCU", "B737", "17:05", "19:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ557", "DEL-VNS", "ATR72", "18:40", "21:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ558", "VNS-DEL", "A320", "05:15", "08:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ559", "DEL-SXR", "B737", "06:50", "10:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ560", "SXR-DEL", "ATR72", "08:25", "12:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ561", "DEL-DED", "A320", "10:00", "11:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ562", "DED-DEL", "B737", "11:35", "13:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ563", "DEL-IXC", "ATR72", "13:10", "15:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ564", "IXC-DEL", "A320", "14:45", "17:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ565", "DEL-BBI", "B737", "16:20", "19:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ566", "BBI-DEL", "ATR72", "17:55", "21:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ567", "DEL-IDR", "A320", "19:30", "21:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ568", "IDR-DEL", "B737", "06:05", "08:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ569", "DEL-NAG", "ATR72", "07:40", "10:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ570", "NAG-DEL", "A320", "09:15", "12:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ571", "DEL-IXR", "B737", "10:50", "14:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ572", "IXR-DEL", "ATR72", "12:25", "16:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ573", "DEL-RPR", "A320", "14:00", "15:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ574", "RPR-DEL", "B737", "15:35", "17:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ575", "DEL-ATQ", "ATR72", "17:10", "19:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ576", "ATQ-DEL", "A320", "18:45", "21:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ577", "DEL-CJB", "B737", "05:20", "08:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ578", "CJB-DEL", "ATR72", "06:55", "10:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ579", "DEL-VTZ", "A320", "08:30", "10:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ580", "VTZ-DEL", "B737", "10:05", "12:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ581", "DEL-TIR", "ATR72", "11:40", "14:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ582", "TIR-DEL", "A320", "13:15", "16:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ583", "DEL-IXA", "B737", "14:50", "18:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ584", "IXA-DEL", "ATR72", "16:25", "20:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ585", "DEL-IXZ", "A320", "18:00", "19:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ586", "IXZ-DEL", "B737", "19:35", "21:45", "Tuesday", "Friday", 0, 6100, 3400),
+        ],
+    )
     db.commit()
     db.close()
 
@@ -509,13 +696,15 @@ def home():
     cards = "".join(
         f'<div class="card"><div class="stat">{v}</div><div>{k}</div></div>' for k, v in stats.items()
     )
-    cities = ["Delhi", "Mumbai", "Bengaluru", "Goa", "Lucknow"]
+    cities = ["Delhi", "Mumbai", "Lucknow", "Bengaluru", "Chennai", "Hyderabad", "Kolkata", "Ahmedabad", "Jaipur", "Patna", "Varanasi", "Pune", "Goa", "Kochi", "Guwahati", "Srinagar", "Dehradun", "Chandigarh", "Bhubaneswar", "Indore", "Nagpur", "Ranchi", "Raipur", "Amritsar", "Coimbatore", "Visakhapatnam", "Tirupati", "Agartala", "Port Blair"]
     city_opts = "".join(f'<option>{c}</option>' for c in cities)
     routes = [
         ("Delhi", "Mumbai", "HZ101", "06:00 - 08:10", 4500),
         ("Delhi", "Bengaluru", "HZ202", "09:00 - 11:45", 5200),
         ("Mumbai", "Goa", "HZ303", "13:00 - 14:15", 3200),
         ("Lucknow", "Delhi", "HZ404", "07:30 - 08:40", 2800),
+        ("Lucknow", "Bengaluru", "HZ518", "16:55 - 20:30", 7800),
+        ("Delhi", "Hyderabad", "HZ504", "09:45 - 12:35", 5200),
     ]
     route_cards = "".join(
         f'<div class="card route-card"><h3>{a} to {b}</h3><p style="color:var(--muted)">{fno} - {tm} - Non-stop</p>'
@@ -539,6 +728,7 @@ def home():
     <button>Search Flights</button></form></div></div>
     <h2 style="margin:6px 0 12px">Popular routes</h2>
     <div class="route-grid">{route_cards}</div>
+    <p style="color:var(--muted);font-size:.9rem">Note: routes added from the All-India airport list use demo fares and demo timings, not live airline fares.</p>
     <div class="grid">{cards}</div>
     <div class="card"><h3>Why book with Horizon?</h3><div class="trust-grid">
     <div><b>Instant PNR</b><p style="color:var(--muted)">Every booking gets a 5-character PNR and a printable e-ticket right away.</p></div>
@@ -695,7 +885,41 @@ def flights():
     )
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     day_opts = "".join(f'<option>{d}</option>' for d in days)
-    _cities = ["Delhi", "Mumbai", "Bengaluru", "Goa", "Lucknow"]
+    # 1-stop connecting options (only when no direct flight matches the search)
+    _conn_html = ""
+    if _from and _to and not rows:
+        _class_key = {"Economy": "economy_fare", "Business": "business_fare", "First": "first_fare"}.get(_tclass, "economy_fare")
+        _conn = []
+        for _leg1 in raw:
+            if _leg1["origin"] != _from:
+                continue
+            for _leg2 in raw:
+                if _leg2["origin"] != _leg1["destination"] or _leg2["destination"] != _to:
+                    continue
+                if not _leg1[_class_key] or not _leg2[_class_key]:
+                    continue
+                _lay = (_mins(_leg2["dep_time"]) - _mins(_leg1["arr_time"])) % (24 * 60)
+                _overnight = _mins(_leg2["dep_time"]) < _mins(_leg1["arr_time"])
+                _journey = (_mins(_leg2["arr_time"]) - _mins(_leg1["dep_time"])) % (24 * 60)
+                if _journey == 0:
+                    _journey = 24 * 60
+                _conn.append((_leg1, _leg2, _leg1[_class_key] + _leg2[_class_key], _lay, _overnight, _journey))
+        _conn.sort(key=lambda c: c[2])
+        if _conn:
+            _cards = ""
+            for _l1, _l2, _total, _lay, _over, _jour in _conn:
+                _cards += (
+                    f'<div class="card"><h3>1-stop via {_l1["destination"]} &mdash; {_from} to {_to}</h3>'
+                    f'<p><b>Leg 1:</b> {_l1["flight_no"]} &mdash; {_l1["origin"]} to {_l1["destination"]} ({_l1["dep_time"]} &ndash; {_l1["arr_time"]})<br>'
+                    f'<b>Leg 2:</b> {_l2["flight_no"]} &mdash; {_l2["origin"]} to {_l2["destination"]} ({_l2["dep_time"]} &ndash; {_l2["arr_time"]})</p>'
+                    f'<p><b>Total fare ({_tclass or "Economy"}):</b> Rs.{_total:,} &nbsp; <b>Journey:</b> {_jour // 60}h {_jour % 60:02d}m &nbsp; <b>Layover:</b> {_lay // 60}h {_lay % 60:02d}m'
+                    + (" (overnight)" if _over else "") + '</p>'
+                    f'<p><a class="btn" href="{url_for("new_reservation")}?flight={_l1["flight_no"]}&travel_class={_tclass or "Economy"}">Book Leg 1 ({_l1["flight_no"]})</a> '
+                    f'<a class="btn ghost" href="{url_for("new_reservation")}?flight={_l2["flight_no"]}&travel_class={_tclass or "Economy"}">Book Leg 2 ({_l2["flight_no"]})</a></p>'
+                    f'<p style="color:var(--muted);font-size:.9rem">Note: each reservation in this app is for one flight, so a connecting journey needs 2 separate bookings (2 PNRs) &mdash; one per leg.</p></div>'
+                )
+            _conn_html = f'<h2 style="margin:6px 0 12px">No direct flight &mdash; 1-stop options</h2>{_cards}'
+    _cities = ["Delhi", "Mumbai", "Lucknow", "Bengaluru", "Chennai", "Hyderabad", "Kolkata", "Ahmedabad", "Jaipur", "Patna", "Varanasi", "Pune", "Goa", "Kochi", "Guwahati", "Srinagar", "Dehradun", "Chandigarh", "Bhubaneswar", "Indore", "Nagpur", "Ranchi", "Raipur", "Amritsar", "Coimbatore", "Visakhapatnam", "Tirupati", "Agartala", "Port Blair"]
     def _copts(sel):
         return "".join(f'<option{" selected" if c == sel else ""}>{c}</option>' for c in _cities)
     _note = ""
@@ -706,7 +930,7 @@ def flights():
         if _tclass:
             _note += f' - { _tclass} class fares highlighted in the fare columns below'
         _note += '.</p>'
-    _empty = "" if rows else '<p><b>No direct flights on this route yet.</b> Try another route, or <a href="/flights">view all flights</a>.</p>'
+    _empty = "" if rows else ('<p><b>No direct flights on this route yet.</b> Try another route, or <a href="/flights">view all flights</a>.</p>' if not _conn_html else "")
     body = f"""
     <div class="card"><h2>Flights</h2>
     <form class="search-form" method="get" action="{url_for('flights')}">
@@ -715,6 +939,7 @@ def flights():
     <label>Sort<select name="sort"><option value="cheapest"{" selected" if _sort == "cheapest" else ""}>Cheapest first</option><option value="earliest"{" selected" if _sort == "earliest" else ""}>Earliest departure</option><option value="fastest"{" selected" if _sort == "fastest" else ""}>Fastest</option></select></label>
     <button>Search</button></form>
     {_note}{_empty}
+    {_conn_html}
     {table_html(rows, [('flight_no','Flight No.'),('sector_id','Route'),('origin','From'),('destination','To'),('dep_time','Departure'),('arr_time','Arrival'),('duration','Duration'),('from_fare','From Fare (Rs.)'),('first_fare','First Fare (Rs.)'),('business_fare','Business Fare (Rs.)'),('economy_fare','Economy Fare (Rs.)')])}
     <p style="color:var(--muted);font-size:.9rem">Fare comparison: First, Business and Economy fares are shown side by side for every flight. A fare of 0 means that class is not offered on that flight. All flights shown are non-stop.</p>
     </div>
