@@ -19,9 +19,11 @@ with technology that runs everywhere:
 
 ## Design
 
-The web interface uses the same look as the GitHub Pages demo — warm
-off-white background, navy top bar with an amber brand mark, teal buttons
-and rounded cards (with dark-mode support from your system setting).
+The web interface uses the same premium blue-white look as the GitHub
+Pages demo — navy (#063B78) and bright blue (#0878D1) on a light-blue
+background, rounded cards, and dark-mode support from your system
+setting. The home page has a flight search widget, popular routes,
+a Why Horizon section and FAQ.
 
 ## Features (same as the original, plus login)
 
@@ -35,11 +37,18 @@ and rounded cards (with dark-mode support from your system setting).
 - Passwords are stored only as hashes, never in plain text. Booking,
   cancelling and tickets require login; browsing the master tables does
   not, but editing them is admin-only.
-- **Main Menu / Dashboard** — counts for flights, sectors, aircraft, reservations
+- **Main Menu / Dashboard** — flight search (route, date, class, sort),
+  popular routes with starting fares, Why Horizon, FAQ, and counts for
+  flights, sectors, aircraft, reservations
+- **Flight Status** — `/flight-status`: check a flight's timetable,
+  aircraft and starting fare by flight number (schedule-based, not a
+  live airline feed)
 - **Sectors** — add / edit sectors (Sector ID, origin, destination)
 - **Aircraft** — add / edit aircraft types and class-wise seat counts
 - **Flights** — flight number, sector, aircraft, departure/arrival time,
-  weekdays, and First / Business / Economy fares
+  weekdays, duration, starting fare, and First / Business / Economy
+  fares side by side; filter by route and sort by cheapest / earliest /
+  fastest
 - **Schedule Flights** — schedule a flight on a date
 - **Reservations** — passenger name, age, gender, class, seat preference
   (Window/Aisle), meal preference (Veg/Non-veg), special service request;
