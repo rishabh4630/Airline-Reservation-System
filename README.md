@@ -53,6 +53,8 @@ Users can manage flights and schedules, book a reservation and get a PNR, print 
 - 🔐 Login / Sign Up — customers book and manage only their own reservations; logging in with the owner's email automatically signs you in as an admin (no separate admin login page)
 - 🔍 Home search, popular routes and flight filters — search by route/date/class, sort by cheapest / earliest / fastest, and compare First / Business / Economy fares side by side
 - 🛫 Flight Status — check a flight's timetable, aircraft and starting fare by flight number
+- 🔀 1-stop connecting flights — when no direct flight exists (e.g. Varanasi → Bengaluru), the search shows a via-Delhi option with total fare, journey time and layover (booked as 2 separate bookings, one per leg)
+- **All-India routes** — 30 airports and 86 demo flights across India (see cross_platform_web README for the full city list); new routes use demo fares/timings, not live airline data.
 - 🎨 Premium blue-white design with dark-mode support, FAQ and transparent fares (the ticket fare is exactly the flight's class fare)
 
 ---
