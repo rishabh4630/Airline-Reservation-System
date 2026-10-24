@@ -20,8 +20,10 @@ import random
 import sqlite3
 import string
 from datetime import date, datetime
+from functools import wraps
 
-from flask import Flask, flash, g, redirect, render_template_string, request, url_for
+from flask import Flask, flash, g, redirect, render_template_string, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "airline.db")
@@ -107,8 +109,20 @@ def init_db(seed=True):
             tran_type TEXT NOT NULL,             -- Payment / Refund
             amount    REAL NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            name          TEXT NOT NULL,
+            email         TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_on    TEXT NOT NULL
+        );
         """
     )
+    # Migration for databases created before login/signup was added:
+    # old reservations rows have no owner, so the new column is nullable.
+    cols = [r[1] for r in db.execute("PRAGMA table_info(reservations)")]
+    if "user_id" not in cols:
+        db.execute("ALTER TABLE reservations ADD COLUMN user_id INTEGER REFERENCES users(id)")
     if seed and db.execute("SELECT COUNT(*) FROM sectors").fetchone()[0] == 0:
         db.executemany(
             "INSERT INTO sectors VALUES (?,?,?,?)",
@@ -198,6 +212,26 @@ def new_pnr(db):
 
 
 # --------------------------------------------------------------------------
+# Login / Signup (Flask session; passwords are stored only as hashes,
+# never in plain text - Werkzeug's generate_password_hash / check_password_hash)
+# --------------------------------------------------------------------------
+def current_user():
+    if "user_id" not in session:
+        return None
+    return get_db().execute("SELECT id, name, email FROM users WHERE id=?", (session["user_id"],)).fetchone()
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+# --------------------------------------------------------------------------
 # Templates (single-file app: layout + pages)
 # --------------------------------------------------------------------------
 LAYOUT = """
@@ -234,6 +268,13 @@ LAYOUT = """
  <a href="{{ url_for('sectors') }}">Sectors</a>
  <a href="{{ url_for('aircraft') }}">Aircraft</a>
  <a href="{{ url_for('reports') }}">Reports</a>
+ {% if session.get('user_id') %}
+  <span style="color:#cfe3ff;font-size:14px">Hello, {{ session.get('user_name') }}</span>
+  <a href="{{ url_for('logout') }}">Logout</a>
+ {% else %}
+  <a href="{{ url_for('login') }}">Login</a>
+  <a href="{{ url_for('register') }}">Sign Up</a>
+ {% endif %}
 </nav>
 <main>
 {% with messages = get_flashed_messages() %}{% if messages %}
@@ -255,6 +296,70 @@ def table_html(rows, cols):
     for r in rows:
         body += "<tr>" + "".join(f"<td>{'' if r[c[0]] is None else r[c[0]]}</td>" for c in cols) + "</tr>"
     return f"<table><tr>{head}</tr>{body}</table>"
+
+
+# --------------------------------------------------------------------------
+# Routes - Sign Up / Login / Logout
+# --------------------------------------------------------------------------
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        email = request.form["email"].strip().lower()
+        password = request.form["password"]
+        if len(password) < 6:
+            flash("Password must be at least 6 characters.")
+        elif get_db().execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
+            flash("This email is already registered. Please login instead.")
+            return redirect(url_for("login"))
+        else:
+            db = get_db()
+            cur = db.execute(
+                "INSERT INTO users (name, email, password_hash, created_on) VALUES (?,?,?,?)",
+                (name, email, generate_password_hash(password), date.today().isoformat()),
+            )
+            db.commit()
+            session["user_id"] = cur.lastrowid
+            session["user_name"] = name
+            flash(f"Welcome, {name}! Your account has been created.")
+            return redirect(url_for("home"))
+    body = """
+    <div class="card"><h2>Sign Up</h2><form method="post">
+    <label>Full Name<input name="name" required></label>
+    <label>Email<input name="email" type="email" required></label>
+    <label>Password<input name="password" type="password" minlength="6" required></label>
+    <button>Create Account</button></form>
+    <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
+    """
+    return page("Sign Up", body)
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        user = get_db().execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if user and check_password_hash(user["password_hash"], request.form["password"]):
+            session["user_id"] = user["id"]
+            session["user_name"] = user["name"]
+            flash(f"Welcome back, {user['name']}!")
+            return redirect(request.args.get("next") or url_for("home"))
+        flash("Invalid email or password. Please try again.")
+    body = """
+    <div class="card"><h2>Login</h2><form method="post">
+    <label>Email<input name="email" type="email" required></label>
+    <label>Password<input name="password" type="password" required></label>
+    <button>Login</button></form>
+    <p>Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p></div>
+    """
+    return page("Login", body)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.")
+    return redirect(url_for("home"))
 
 
 # --------------------------------------------------------------------------
@@ -294,6 +399,9 @@ def home():
 def sectors():
     db = get_db()
     if request.method == "POST":
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
         db.execute(
             "INSERT OR REPLACE INTO sectors VALUES (?,?,?,?)",
             (request.form["sector_id"].strip().upper(), request.form["origin"].strip(),
@@ -321,6 +429,9 @@ def sectors():
 def aircraft():
     db = get_db()
     if request.method == "POST":
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
         db.execute(
             "INSERT OR REPLACE INTO aircraft VALUES (?,?,?,?,?)",
             (request.form["aircraft_id"].strip().upper(), request.form["description"].strip(),
@@ -350,6 +461,9 @@ def aircraft():
 def flights():
     db = get_db()
     if request.method == "POST":
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
         db.execute(
             "INSERT OR REPLACE INTO flights VALUES (?,?,?,?,?,?,?,?,?,?)",
             (request.form["flight_no"].strip().upper(), request.form["sector_id"], request.form["aircraft_id"],
@@ -397,6 +511,9 @@ def flights():
 def schedule():
     db = get_db()
     if request.method == "POST":
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
         db.execute(
             "INSERT OR IGNORE INTO scheduled_flights (flight_no, flight_date) VALUES (?,?)",
             (request.form["flight_no"], request.form["flight_date"]),
@@ -429,12 +546,21 @@ def schedule():
 # Reservations
 # --------------------------------------------------------------------------
 @app.route("/reservations")
+@login_required
 def reservations():
     db = get_db()
-    rows = db.execute(
-        """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
-                  flight_no, travel_date, fare, status FROM reservations ORDER BY created_on DESC"""
-    ).fetchall()
+    if request.args.get("mine") == "1":
+        rows = db.execute(
+            """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
+                      flight_no, travel_date, fare, status FROM reservations
+               WHERE user_id=? ORDER BY created_on DESC""",
+            (session["user_id"],),
+        ).fetchall()
+    else:
+        rows = db.execute(
+            """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
+                      flight_no, travel_date, fare, status FROM reservations ORDER BY created_on DESC"""
+        ).fetchall()
     extra = ""
     if rows:
         links = " ".join(
@@ -444,12 +570,15 @@ def reservations():
     body = f"""
     <div class="card"><h2>Reservations</h2>
     {table_html(rows, [('pnr','PNR No.'),('passenger','Passenger Name'),('age','Age'),('gender','Gender'),('travel_class','Class'),('flight_no','Flight No.'),('travel_date','Travel Date'),('fare','Fare Amount ($)'),('status','Status')])}
-    <p><a class="btn" href="{url_for('new_reservation')}">New Reservation</a></p></div>{extra}
+    <p><a class="btn" href="{url_for('new_reservation')}">New Reservation</a>
+    <a class="btn light" href="{url_for('reservations', mine=1)}">My Bookings</a>
+    <a class="btn light" href="{url_for('reservations')}">All Bookings</a></p></div>{extra}
     """
     return page("Reservations", body)
 
 
 @app.route("/reservations/new", methods=["GET", "POST"])
+@login_required
 def new_reservation():
     db = get_db()
     if request.method == "POST":
@@ -460,10 +589,10 @@ def new_reservation():
         status = "Confirmed" if available > 0 else "Wait-listed"
         pnr = new_pnr(db)
         db.execute(
-            "INSERT INTO reservations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO reservations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (pnr, f["first_name"].strip(), f["last_name"].strip(), int(f["age"] or 0), f["gender"],
              travel_class, f["flight_no"], f["travel_date"], fare, f["seat_pref"], f["meal_pref"],
-             f["ssr"].strip(), status, date.today().isoformat()),
+             f["ssr"].strip(), status, date.today().isoformat(), session.get("user_id")),
         )
         db.execute(
             "INSERT INTO daily_collections (pnr, tran_date, tran_type, amount) VALUES (?,?,?,?)",
@@ -503,6 +632,7 @@ def new_reservation():
 
 
 @app.route("/ticket/<pnr>")
+@login_required
 def ticket(pnr):
     db = get_db()
     r = db.execute(
@@ -534,6 +664,7 @@ def ticket(pnr):
 # Cancellation + Refund receipt
 # --------------------------------------------------------------------------
 @app.route("/cancel", methods=["GET", "POST"])
+@login_required
 def cancel():
     db = get_db()
     detail = None
@@ -592,6 +723,7 @@ def cancel():
 
 
 @app.route("/refund/<pnr>")
+@login_required
 def refund_receipt(pnr):
     refund = request.args.get("refund", "0")
     db = get_db()
@@ -616,6 +748,7 @@ def refund_receipt(pnr):
 # Reports (from the original Main Menu -> Reports)
 # --------------------------------------------------------------------------
 @app.route("/reports")
+@login_required
 def reports():
     db = get_db()
     confirmed = db.execute(
