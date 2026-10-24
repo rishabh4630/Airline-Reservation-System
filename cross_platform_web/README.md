@@ -17,8 +17,14 @@ with technology that runs everywhere:
 | Visual Studio on Windows | Any editor, on Windows / macOS / Linux |
 | `.exe` output | Open `http://127.0.0.1:5000` in a browser |
 
-## Features (same as the original)
+## Features (same as the original, plus login)
 
+- **Sign Up / Login / Logout** — new in the web version: create an account
+  (name, email, password — passwords are stored only as hashes, never in
+  plain text), login to book, view your own bookings under
+  Reservations → My Bookings, and logout. Booking, cancelling, tickets and
+  reports require login; adding/editing flights, sectors, aircraft and
+  schedules also requires login, while browsing those tables does not.
 - **Main Menu / Dashboard** — counts for flights, sectors, aircraft, reservations
 - **Sectors** — add / edit sectors (Sector ID, origin, destination)
 - **Aircraft** — add / edit aircraft types and class-wise seat counts
