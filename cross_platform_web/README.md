@@ -25,12 +25,16 @@ and rounded cards (with dark-mode support from your system setting).
 
 ## Features (same as the original, plus login)
 
-- **Sign Up / Login / Logout** — new in the web version: create an account
-  (name, email, password — passwords are stored only as hashes, never in
-  plain text), login to book, view your own bookings under
-  Reservations → My Bookings, and logout. Booking, cancelling, tickets and
-  reports require login; adding/editing flights, sectors, aircraft and
-  schedules also requires login, while browsing those tables does not.
+- **Customer Sign Up / Login** — `/register` and `/login`: a customer can
+  book, view and cancel only their own reservations (Reservations shows
+  their own bookings), and logout.
+- **Admin Sign Up / Login** — `/admin/register` and `/admin/login`: an
+  admin can view all reservations, open Reports, and add/edit flights,
+  sectors, aircraft and schedules. A customer account cannot login from
+  the admin page and vice versa — each role has its own login page.
+- Passwords are stored only as hashes, never in plain text. Booking,
+  cancelling and tickets require login; browsing the master tables does
+  not, but editing them is admin-only.
 - **Main Menu / Dashboard** — counts for flights, sectors, aircraft, reservations
 - **Sectors** — add / edit sectors (Sector ID, origin, destination)
 - **Aircraft** — add / edit aircraft types and class-wise seat counts
