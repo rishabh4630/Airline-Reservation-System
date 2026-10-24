@@ -20,9 +20,9 @@
 @media (prefers-color-scheme:dark){
   :root{
     --bg:#091423; --surface:#101f33; --surface2:#16293f; --ink:#edf3f9; --muted:#a4b6c9; --faint:#75899f;
-    --navy:#0b1e33; --navy2:#14304f; --accent:#2fbfab; --accent-soft:#123a36; --amber:#f0a13c; --amber-soft:#3a2a12;
+    --navy:#0b1e33; --navy2:#14304f; --accent:#4aa8ec; --accent-soft:#0d2a4a; --amber:#f0a13c; --amber-soft:#3a2a12;
     --danger:#ff8a7a; --danger-soft:#3d1a16; --ok:#5fd68f; --ok-soft:#14301f; --wait:#ffb25e; --wait-soft:#38270e;
-    --line:#22344c; --line2:#22344c; --shadow:0 10px 30px rgba(0,0,0,.35);
+    --line:#2f4566; --line2:#2f4566; --shadow:0 10px 30px rgba(0,0,0,.35);
   }
 }
 *{box-sizing:border-box}
@@ -310,6 +310,10 @@ tbody tr:hover{background:var(--surface2)}
  .flight-mid .line{border-radius:999px}
  .hero-img img{border-radius:20px}
  @media (max-width:600px){ .wrap{padding-left:14px;padding-right:14px} }
+
+ .route-card{padding:20px}
+ .route-card .btn{margin-top:12px}
+ .grid4{margin-bottom:20px}
 </style>
 </head>
 <body>
@@ -373,10 +377,10 @@ tbody tr:hover{background:var(--surface2)}
   
       <div class="sec-head"><div><h2>Popular routes</h2><p>Starting fares per passenger, Economy class. Tap a route to see its flight.</p></div></div>
       <div class="grid4">
-        <div class="card"><h3>Delhi &rarr; Mumbai</h3><p style="color:var(--muted)">HZ101 &middot; 06:00 &ndash; 08:10 &middot; Non-stop</p><p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br><b style="font-size:1.4rem;color:var(--navy)">&#8377;4,500</b></p><button class="btn" onclick="showRoute('DEL','BOM')">View Flight</button></div>
-        <div class="card"><h3>Delhi &rarr; Bengaluru</h3><p style="color:var(--muted)">HZ202 &middot; 07:45 &ndash; 10:30 &middot; Non-stop</p><p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br><b style="font-size:1.4rem;color:var(--navy)">&#8377;5,400</b></p><button class="btn" onclick="showRoute('DEL','BLR')">View Flight</button></div>
-        <div class="card"><h3>Mumbai &rarr; Goa</h3><p style="color:var(--muted)">HZ303 &middot; 11:20 &ndash; 12:30 &middot; Non-stop</p><p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br><b style="font-size:1.4rem;color:var(--navy)">&#8377;3,600</b></p><button class="btn" onclick="showRoute('BOM','GOA')">View Flight</button></div>
-        <div class="card"><h3>Lucknow &rarr; Delhi</h3><p style="color:var(--muted)">HZ404 &middot; 17:10 &ndash; 18:25 &middot; Non-stop</p><p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br><b style="font-size:1.4rem;color:var(--navy)">&#8377;3,400</b></p><button class="btn" onclick="showRoute('LKO','DEL')">View Flight</button></div>
+        <div class="card route-card"><h3>Delhi &rarr; Mumbai</h3><p style="color:var(--muted)">HZ101 &middot; 06:00 &ndash; 08:10 &middot; Non-stop</p><p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br><b style="font-size:1.4rem;color:var(--accent)">&#8377;4,500</b></p><button class="btn" onclick="showRoute('DEL','BOM')">View Flight</button></div>
+        <div class="card route-card"><h3>Delhi &rarr; Bengaluru</h3><p style="color:var(--muted)">HZ202 &middot; 07:45 &ndash; 10:30 &middot; Non-stop</p><p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br><b style="font-size:1.4rem;color:var(--accent)">&#8377;5,400</b></p><button class="btn" onclick="showRoute('DEL','BLR')">View Flight</button></div>
+        <div class="card route-card"><h3>Mumbai &rarr; Goa</h3><p style="color:var(--muted)">HZ303 &middot; 11:20 &ndash; 12:30 &middot; Non-stop</p><p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br><b style="font-size:1.4rem;color:var(--accent)">&#8377;3,600</b></p><button class="btn" onclick="showRoute('BOM','GOA')">View Flight</button></div>
+        <div class="card route-card"><h3>Lucknow &rarr; Delhi</h3><p style="color:var(--muted)">HZ404 &middot; 17:10 &ndash; 18:25 &middot; Non-stop</p><p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br><b style="font-size:1.4rem;color:var(--accent)">&#8377;3,400</b></p><button class="btn" onclick="showRoute('LKO','DEL')">View Flight</button></div>
       </div>
       <div class="card"><h3>Why book with Horizon?</h3><p style="color:var(--muted);line-height:1.7">Instant PNR and printable e-ticket &middot; Transparent fares &mdash; the ticket fare is exactly the flight's class fare, no extra charges in this demo &middot; Easy cancellation with the same refund rule as the original app &middot; Seat (Window/Aisle) and meal (Veg/Non-veg) choice while booking.</p></div>
       <div class="card"><h3>Frequently asked questions</h3>
