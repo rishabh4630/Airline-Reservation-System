@@ -31,6 +31,10 @@ DATABASE = os.path.join(BASE_DIR, "airline.db")
 app = Flask(__name__)
 app.secret_key = "horizon-airways-dev-key-change-me"
 
+# The owner account: logging in with this email is automatically an admin,
+# so there is no separate admin signup/login page.
+OWNER_EMAIL = "rishabhsingh4630@gmail.com"
+
 
 # --------------------------------------------------------------------------
 # Database helpers (SQLite - cross-platform replacement for MS Access .mdb)
@@ -240,7 +244,7 @@ def admin_required(view):
     def wrapped(*args, **kwargs):
         if "user_id" not in session:
             flash("Please login as admin first.")
-            return redirect(url_for("admin_login", next=request.path))
+            return redirect(url_for("login", next=request.path))
         if session.get("user_role") != "admin":
             flash("Only admins can open this page.")
             return redirect(url_for("home"))
@@ -257,10 +261,18 @@ def owns_booking(row):
     )
 
 
+def effective_role(user):
+    return "admin" if user["email"].lower() == OWNER_EMAIL else user["role"]
+
+
 def start_session(user):
     session["user_id"] = user["id"]
     session["user_name"] = user["name"]
-    session["user_role"] = user["role"]
+    session["user_role"] = effective_role(user)
+    if session["user_role"] == "admin" and user["role"] != "admin":
+        db = get_db()
+        db.execute("UPDATE users SET role='admin' WHERE id=?", (user["id"],))
+        db.commit()
 
 
 # --------------------------------------------------------------------------
@@ -337,7 +349,6 @@ LAYOUT = """
  {% else %}
   <a href="{{ url_for('login') }}">Login</a>
   <a href="{{ url_for('register') }}">Sign Up</a>
-  <a href="{{ url_for('admin_login') }}">Admin</a>
  {% endif %}
  </nav>
 </div></header>
@@ -381,24 +392,24 @@ def register():
             db = get_db()
             cur = db.execute(
                 "INSERT INTO users (name, email, password_hash, role, created_on) VALUES (?,?,?,?,?)",
-                (name, email, generate_password_hash(password), "customer", date.today().isoformat()),
+                (name, email, generate_password_hash(password),
+                 "admin" if email == OWNER_EMAIL else "customer", date.today().isoformat()),
             )
             db.commit()
             session["user_id"] = cur.lastrowid
             session["user_name"] = name
-            session["user_role"] = "customer"
+            session["user_role"] = "admin" if email == OWNER_EMAIL else "customer"
             flash(f"Welcome, {name}! Your account has been created.")
             return redirect(url_for("home"))
     body = """
-    <div class="card"><h2>Customer Sign Up</h2><form method="post">
+    <div class="card"><h2>Sign Up</h2><form method="post">
     <label>Full Name<input name="name" required></label>
     <label>Email<input name="email" type="email" required></label>
     <label>Password<input name="password" type="password" minlength="6" required></label>
     <button>Create Account</button></form>
-    <p>Already have an account? <a href="{{ url_for('login') }}">Customer Login</a> |
-    Are you an admin? <a href="{{ url_for('admin_login') }}">Admin Login</a></p></div>
+    <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
     """
-    return page("Customer Sign Up", body)
+    return page("Sign Up", body)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -406,82 +417,20 @@ def login():
     if request.method == "POST":
         email = request.form["email"].strip().lower()
         user = get_db().execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        if user and user["role"] != "customer":
-            flash("This is an admin account. Please use Admin Login.")
-        elif user and check_password_hash(user["password_hash"], request.form["password"]):
+        if user and check_password_hash(user["password_hash"], request.form["password"]):
             start_session(user)
             flash(f"Welcome back, {user['name']}!")
             return redirect(request.args.get("next") or url_for("home"))
         else:
             flash("Invalid email or password. Please try again.")
     body = """
-    <div class="card"><h2>Customer Login</h2><form method="post">
+    <div class="card"><h2>Login</h2><form method="post">
     <label>Email<input name="email" type="email" required></label>
     <label>Password<input name="password" type="password" required></label>
     <button>Login</button></form>
-    <p>Don't have an account? <a href="{{ url_for('register') }}">Customer Sign Up</a> |
-    Are you an admin? <a href="{{ url_for('admin_login') }}">Admin Login</a></p></div>
+    <p>Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p></div>
     """
-    return page("Customer Login", body)
-
-
-@app.route("/admin/register", methods=["GET", "POST"])
-def admin_register():
-    if request.method == "POST":
-        name = request.form["name"].strip()
-        email = request.form["email"].strip().lower()
-        password = request.form["password"]
-        if len(password) < 6:
-            flash("Password must be at least 6 characters.")
-        elif get_db().execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
-            flash("This email is already registered. Please login instead.")
-            return redirect(url_for("admin_login"))
-        else:
-            db = get_db()
-            cur = db.execute(
-                "INSERT INTO users (name, email, password_hash, role, created_on) VALUES (?,?,?,?,?)",
-                (name, email, generate_password_hash(password), "admin", date.today().isoformat()),
-            )
-            db.commit()
-            session["user_id"] = cur.lastrowid
-            session["user_name"] = name
-            session["user_role"] = "admin"
-            flash(f"Welcome, {name}! Your admin account has been created.")
-            return redirect(url_for("home"))
-    body = """
-    <div class="card"><h2>Admin Sign Up</h2><form method="post">
-    <label>Full Name<input name="name" required></label>
-    <label>Email<input name="email" type="email" required></label>
-    <label>Password<input name="password" type="password" minlength="6" required></label>
-    <button>Create Admin Account</button></form>
-    <p>Already an admin? <a href="{{ url_for('admin_login') }}">Admin Login</a> |
-    Customer? <a href="{{ url_for('register') }}">Customer Sign Up</a></p></div>
-    """
-    return page("Admin Sign Up", body)
-
-
-@app.route("/admin/login", methods=["GET", "POST"])
-def admin_login():
-    if request.method == "POST":
-        email = request.form["email"].strip().lower()
-        user = get_db().execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        if user and user["role"] != "admin":
-            flash("This is a customer account. Please use Customer Login.")
-        elif user and check_password_hash(user["password_hash"], request.form["password"]):
-            start_session(user)
-            flash(f"Welcome back, {user['name']} (Admin)!")
-            return redirect(request.args.get("next") or url_for("home"))
-        else:
-            flash("Invalid email or password. Please try again.")
-    body = """
-    <div class="card"><h2>Admin Login</h2><form method="post">
-    <label>Email<input name="email" type="email" required></label>
-    <label>Password<input name="password" type="password" required></label>
-    <button>Login as Admin</button></form>
-    <p>New admin? <a href="{{ url_for('admin_register') }}">Admin Sign Up</a> |
-    Customer? <a href="{{ url_for('login') }}">Customer Login</a></p></div>
-    """
-    return page("Admin Login", body)
+    return page("Login", body)
 
 
 @app.route("/logout")
