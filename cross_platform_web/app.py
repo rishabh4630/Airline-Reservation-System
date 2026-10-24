@@ -239,29 +239,60 @@ LAYOUT = """
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Horizon Airways - {{ title }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
- body{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;margin:0;background:#f4f6fb;color:#17233b}
- header{background:#0b3c6c;color:#fff;padding:16px 24px}
- header h1{margin:0;font-size:22px} header p{margin:2px 0 0;opacity:.85;font-size:13px}
- nav{background:#12508c;padding:8px 24px} nav a{color:#fff;text-decoration:none;margin-right:16px;font-size:14px}
- nav a:hover{text-decoration:underline}
- main{max-width:1020px;margin:24px auto;padding:0 16px}
- .card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:18px}
- table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid #e5e9f0;text-align:left;font-size:14px}
- input,select{padding:8px;border:1px solid #c6cfdd;border-radius:6px;margin:4px 8px 12px 0}
- button,.btn{background:#0b3c6c;color:#fff;border:0;padding:9px 16px;border-radius:6px;cursor:pointer;text-decoration:none;font-size:14px}
- .btn.light{background:#e8eef6;color:#0b3c6c} .danger{background:#b3261e}
- label{font-size:13px;font-weight:600;display:block}
- .flash{background:#e6f4ea;border:1px solid #34a853;padding:10px 14px;border-radius:8px;margin-bottom:14px}
- .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
- .stat{font-size:28px;font-weight:700;color:#0b3c6c}
- @media print{header,nav,.noprint{display:none}}
+ /* Same look as the GitHub Pages demo: warm off-white background, navy
+    top bar, amber brand mark, teal buttons, soft shadows, rounded cards. */
+ :root{--bg:#f6f4ef;--surface:#ffffff;--surface2:#eef2f5;--ink:#13273f;--muted:#5d6f84;--faint:#8494a7;
+  --navy:#0f2e4d;--navy2:#17426b;--accent:#0e7a6d;--accent-soft:#e0f1ee;--amber:#f59e0b;
+  --danger:#b42318;--danger-soft:#fdecea;--ok:#067647;--ok-soft:#e6f4ea;
+  --line:#e3ded1;--line2:#dbe2ea;--shadow:0 10px 30px rgba(15,46,77,.10);--radius:16px}
+ @media (prefers-color-scheme:dark){
+  :root{--bg:#091423;--surface:#101f33;--surface2:#16293f;--ink:#edf3f9;--muted:#a4b6c9;--faint:#75899f;
+   --navy:#0b1e33;--navy2:#14304f;--accent:#2fbfab;--accent-soft:#123a36;--amber:#f0a13c;
+   --danger:#ff8a7a;--danger-soft:#3d1a16;--ok:#5fd68f;--ok-soft:#14301f;
+   --line:#22344c;--line2:#22344c;--shadow:0 10px 30px rgba(0,0,0,.35)}}
+ *{box-sizing:border-box}
+ body{font-family:"Archivo",system-ui,-apple-system,'Segoe UI',Arial,sans-serif;margin:0;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+ a{color:var(--accent)}
+ header{position:sticky;top:0;z-index:40;background:var(--navy);color:#fff;box-shadow:0 4px 18px rgba(9,20,35,.25)}
+ .topbar{max-width:1180px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+ .brand{display:flex;align-items:center;gap:11px;margin-right:auto;text-decoration:none;color:#fff}
+ .brand-mark{width:38px;height:38px;border-radius:10px;background:#f59e0b;color:#12263f;display:grid;place-items:center;font-weight:900;font-size:1.25rem}
+ .brand b{font-size:1.12rem;display:block;line-height:1.1}
+ .brand span{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:#bcd2e8;font-weight:600}
+ nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+ nav a{color:#d7e5f2;text-decoration:none;padding:8px 13px;border-radius:999px;font-weight:600;font-size:.9rem}
+ nav a:hover{background:rgba(255,255,255,.10);color:#fff}
+ nav a.cta{background:#f59e0b;color:#12263f}
+ nav .hello{color:#c9dcee;font-size:.9rem;font-weight:600}
+ main{max-width:1180px;margin:0 auto;padding:26px 18px 64px}
+ .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:18px}
+ .hero{background:var(--navy);color:#fff;border-radius:22px;padding:30px;margin-bottom:22px;box-shadow:var(--shadow)}
+ .hero h1{font-size:clamp(1.9rem,4vw,2.9rem);line-height:1.04;margin:10px 0 12px;font-weight:900}
+ .hero p{color:#c9dcee;line-height:1.6;margin:0 0 20px;max-width:46ch}
+ .hero-tag{display:inline-block;background:rgba(245,158,11,.18);color:#fbbf24;border:1px solid rgba(245,158,11,.45);padding:5px 11px;border-radius:999px;font-size:.74rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+ table{width:100%;border-collapse:collapse} th,td{padding:10px 8px;border-bottom:1px solid var(--line2);text-align:left;font-size:14px}
+ th{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+ input,select{font-family:inherit;font-size:1rem;color:var(--ink);background:var(--surface);padding:10px;border:1px solid var(--line2);border-radius:9px;margin:4px 8px 12px 0}
+ button,.btn{font-family:inherit;border:0;border-radius:11px;padding:12px 20px;font-weight:800;font-size:.95rem;background:var(--accent);color:#fff;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+ button:hover,.btn:hover{filter:brightness(1.07)}
+ .btn.light,.btn.amber{background:#f59e0b;color:#12263f}
+ .btn.ghost{background:transparent;border:1.5px solid var(--line2);color:var(--ink)}
+ .danger{background:var(--danger)}
+ label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block}
+ .flash{background:var(--ok-soft);border:1px solid var(--ok);padding:12px 14px;border-radius:11px;margin-bottom:14px}
+ .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+ .grid .card{padding:16px 16px 13px}
+ .stat{font-size:1.65rem;font-weight:900;line-height:1;color:var(--navy)}
+ @media print{header,.noprint{display:none}}
 </style></head><body>
-<header><h1>✈ Horizon Airways</h1><p>Airline Reservation System — Cross-Platform Web Version (Windows · macOS · Linux)</p></header>
-<nav>
+<header><div class="topbar">
+ <a class="brand" href="{{ url_for('home') }}"><span class="brand-mark">✈</span><span><b>Horizon Airways</b><span>Airline Reservation System</span></span></a>
+ <nav>
  <a href="{{ url_for('home') }}">Main Menu</a>
  <a href="{{ url_for('reservations') }}">Reservations</a>
- <a href="{{ url_for('new_reservation') }}">New Reservation</a>
+ <a class="cta" href="{{ url_for('new_reservation') }}">New Reservation</a>
  <a href="{{ url_for('cancel') }}">Cancel Reservation</a>
  <a href="{{ url_for('flights') }}">Flights</a>
  <a href="{{ url_for('schedule') }}">Schedule Flights</a>
@@ -269,13 +300,14 @@ LAYOUT = """
  <a href="{{ url_for('aircraft') }}">Aircraft</a>
  <a href="{{ url_for('reports') }}">Reports</a>
  {% if session.get('user_id') %}
-  <span style="color:#cfe3ff;font-size:14px">Hello, {{ session.get('user_name') }}</span>
+  <span class="hello">Hello, {{ session.get('user_name') }}</span>
   <a href="{{ url_for('logout') }}">Logout</a>
  {% else %}
   <a href="{{ url_for('login') }}">Login</a>
   <a href="{{ url_for('register') }}">Sign Up</a>
  {% endif %}
-</nav>
+ </nav>
+</div></header>
 <main>
 {% with messages = get_flashed_messages() %}{% if messages %}
   {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}{% endwith %}
@@ -380,14 +412,17 @@ def home():
         f'<div class="card"><div class="stat">{v}</div><div>{k}</div></div>' for k, v in stats.items()
     )
     body = f"""
-    <div class="card"><h2>Main Menu</h2>
-    <p>Welcome to Horizon Airways. Bookings, reports and master tables — same features
-    as the original VB.NET desktop app, now in the browser on any operating system.</p></div>
+    <div class="hero"><span class="hero-tag">Horizon Airways</span>
+    <h1>Book a flight in under a minute.</h1>
+    <p>Bookings, reports and master tables — same features as the original VB.NET
+    desktop app, now in the browser on any operating system.</p>
+    <p><a class="btn light" href="{url_for('new_reservation')}">Make a Reservation</a>
+    <a class="btn" style="background:#fff;color:var(--navy)" href="{url_for('flights')}">View Flights</a></p></div>
     <div class="grid">{cards}</div>
     <div class="card"><h3>Quick links</h3>
     <p><a class="btn" href="{url_for('new_reservation')}">Make a Reservation</a>
-    <a class="btn light" href="{url_for('cancel')}">Cancel a Reservation</a>
-    <a class="btn light" href="{url_for('reports')}">View Reports</a></p></div>
+    <a class="btn ghost" href="{url_for('cancel')}">Cancel a Reservation</a>
+    <a class="btn ghost" href="{url_for('reports')}">View Reports</a></p></div>
     """
     return page("Main Menu", body)
 
