@@ -1,5 +1,13 @@
 # Airline Reservation System
 
+## 🔗 Live Demo
+
+**Try it online — no installation needed:**
+
+[Live Demo — Airline Reservation System](https://muse.ai/s/airline-reservation-system-2-xvxh64xqxlhexp8n/suhs7nFHO6tdL1s90lP-tMgbq75838549muTtcOw1Lc)
+
+> This is a browser demo of the web version. You can book flights, print tickets, cancel reservations and view reports right in the browser. Demo data is not saved — for the full version with a saved database, run the web version below.
+
 ## Project Overview
 The Airline Reservation System is a software application designed to manage airline reservations and provide a simple interface for handling flight-related operations.
 
