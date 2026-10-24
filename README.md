@@ -11,7 +11,7 @@ The cross-platform web version is built using **Python + Flask + SQLite**, and t
 🔗 **Try the application here:**
 https://rishabh4630.github.io/Airline-Reservation-System/
 
-> This is a browser demo of the web version, hosted on GitHub Pages — it works for anyone, no account or signup needed. Demo data is not saved. For the full version with a saved database, run the web version below.
+> This is a browser demo of the web version, hosted on GitHub Pages — it works for anyone. Booking in the demo needs a free Login / Sign Up (accounts live only in that browser, and demo bookings reset on reload). For the full version with a saved database, run the web version below.
 
 ---
 
@@ -50,6 +50,10 @@ Users can manage flights and schedules, book a reservation and get a PNR, print 
 - ✅ Automatic fare calculation from the flight's class fare
 - 🪑 Seat-availability check — if a class is full, the reservation becomes **Wait-listed**
 - 🔁 Cancelling a Confirmed Economy seat promotes the earliest Wait-listed passenger to Confirmed
+- 🔐 Login / Sign Up — customers book and manage only their own reservations; logging in with the owner's email automatically signs you in as an admin (no separate admin login page)
+- 🔍 Home search, popular routes and flight filters — search by route/date/class, sort by cheapest / earliest / fastest, and compare First / Business / Economy fares side by side
+- 🛫 Flight Status — check a flight's timetable, aircraft and starting fare by flight number
+- 🎨 Premium blue-white design with dark-mode support, FAQ and transparent fares (the ticket fare is exactly the flight's class fare)
 
 ---
 
@@ -296,14 +300,11 @@ Example:
 
 ## 🚀 Future Improvements
 
-- Add user login and authentication
 - Add online payment integration
 - Send e-tickets by email
-- Add flight search and filters
 - Add seat-map selection
 - Deploy using Docker
-- Add a mobile-friendly interface
-- Improve UI/UX
+- Add real flight-data and live status integration (currently the timetable is demo data)
 
 ---
 
