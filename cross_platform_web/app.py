@@ -344,6 +344,17 @@ LAYOUT = """
  tr{transition:background .15s ease} tbody tr:hover{background:var(--surface2)}
  nav a{transition:background .15s ease,color .15s ease}
  .brand-mark{transition:transform .25s ease} .brand:hover .brand-mark{transform:rotate(-12deg) scale(1.06)}
+ /* Premium auth card */
+ .auth-card{max-width:460px;margin:28px auto;padding:30px 30px 24px;border-radius:22px;box-shadow:0 20px 44px rgba(15,46,77,.16);position:relative;overflow:hidden}
+ .auth-card:before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--navy),var(--accent),var(--amber))}
+ .auth-badge{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--navy);font-weight:800;font-size:.82rem;padding:7px 12px;border-radius:999px;margin-bottom:14px}
+ .auth-card h2{font-size:1.7rem;margin:0 0 6px}
+ .auth-sub{color:var(--muted);margin:0 0 20px;line-height:1.55}
+ .auth-card label{font-weight:600}
+ .auth-card input{padding:13px 14px;border-radius:12px;font-size:1rem}
+ .auth-card button{width:100%;padding:13px;margin-top:6px;font-size:1.02rem;border-radius:12px}
+ .auth-switch{text-align:center;color:var(--muted);margin-top:16px}
+ .auth-note{text-align:center;color:var(--faint);font-size:.85rem;margin-top:8px;line-height:1.5}
  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
  @media print{header,.noprint{display:none}}
 </style></head><body>
@@ -418,12 +429,13 @@ def register():
             flash(f"Welcome, {name}! Your account has been created.")
             return redirect(url_for("home"))
     body = """
-    <div class="card"><h2>Sign Up</h2><form method="post">
-    <label>Full Name<input name="name" required></label>
-    <label>Email<input name="email" type="email" required></label>
-    <label>Password<input name="password" type="password" minlength="6" required></label>
+    <div class="card auth-card"><div class="auth-badge">✈ Horizon Airways</div><h2>Create your account</h2>
+    <p class="auth-sub">Book flights, view your tickets and manage your reservations.</p><form method="post">
+    <label>Full Name<input name="name" required placeholder="e.g. Aarav Sharma"></label>
+    <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
+    <label>Password<input name="password" type="password" minlength="6" required placeholder="At least 6 characters"></label>
     <button>Create Account</button></form>
-    <p>Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
+    <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
     """
     return page("Sign Up", body)
 
@@ -440,11 +452,13 @@ def login():
         else:
             flash("Invalid email or password. Please try again.")
     body = """
-    <div class="card"><h2>Login</h2><form method="post">
-    <label>Email<input name="email" type="email" required></label>
-    <label>Password<input name="password" type="password" required></label>
+    <div class="card auth-card"><div class="auth-badge">✈ Horizon Airways</div><h2>Welcome back</h2>
+    <p class="auth-sub">Login to book flights and view your reservations.</p><form method="post">
+    <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
+    <label>Password<input name="password" type="password" required placeholder="Your password"></label>
     <button>Login</button></form>
-    <p>Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p></div>
+    <p class="auth-switch">Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p>
+    <p class="auth-note">Logging in with the owner's email signs you in as admin automatically.</p></div>
     """
     return page("Login", body)
 
