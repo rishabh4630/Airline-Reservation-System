@@ -364,6 +364,20 @@ LAYOUT = """
  .trust-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
  .faq details{border-bottom:1px solid var(--line2);padding:10px 0} .faq summary{font-weight:700;cursor:pointer}
  @media print{header,.noprint{display:none}}
+
+ /* Edge system: one consistent corner language everywhere */
+ :root{--radius:20px}
+ body{overflow-x:hidden}
+ .card{border-radius:20px}
+ .hero{border-radius:24px}
+ button,.btn{border-radius:12px}
+ nav a{border-radius:999px}
+ input,select,textarea{border-radius:12px}
+ .brand-mark{border-radius:12px}
+ .flash{border-radius:12px}
+ .auth-card{border-radius:20px}
+ .search-card{border-radius:20px}
+ @media (max-width:600px){ main{padding-left:14px;padding-right:14px} }
 </style></head><body>
 <header><div class="topbar">
  <a class="brand" href="{{ url_for('home') }}"><span class="brand-mark">✈</span><span><b>Horizon Airways</b><span>Airline Reservation System</span></span></a>
