@@ -25,13 +25,13 @@ and rounded cards (with dark-mode support from your system setting).
 
 ## Features (same as the original, plus login)
 
-- **Customer Sign Up / Login** — `/register` and `/login`: a customer can
-  book, view and cancel only their own reservations (Reservations shows
-  their own bookings), and logout.
-- **Admin Sign Up / Login** — `/admin/register` and `/admin/login`: an
-  admin can view all reservations, open Reports, and add/edit flights,
-  sectors, aircraft and schedules. A customer account cannot login from
-  the admin page and vice versa — each role has its own login page.
+- **Sign Up / Login** — `/register` and `/login`: a customer can book,
+  view and cancel only their own reservations (Reservations shows their
+  own bookings), and logout. There is no separate admin signup/login
+  page: logging in with the owner's email (`OWNER_EMAIL` in `app.py`)
+  automatically signs you in as an admin.
+- **Admin (owner only)** — an admin can view all reservations, open
+  Reports, and add/edit flights, sectors, aircraft and schedules.
 - Passwords are stored only as hashes, never in plain text. Booking,
   cancelling and tickets require login; browsing the master tables does
   not, but editing them is admin-only.
