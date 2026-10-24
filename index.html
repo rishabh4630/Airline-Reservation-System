@@ -280,7 +280,12 @@ footer{margin-top:48px;border-top:1px solid var(--line);padding-top:18px;color:v
       <button data-view="book" class="cta">Book a Ticket</button>
       <button data-view="reservations">Reservations</button>
       <button data-view="reports">Reports</button>
+      <button data-view="auth" id="authNavBtn">Login / Sign Up</button>
     </nav>
+    <div id="authArea" style="display:flex;align-items:center;gap:10px">
+      <span id="authBadge" style="color:#c9dcee;font-size:.9rem;font-weight:600"></span>
+      <button id="logoutBtn" class="btn small" style="display:none">Logout</button>
+    </div>
   </div>
 </header>
 
@@ -387,10 +392,32 @@ footer{margin-top:48px;border-top:1px solid var(--line);padding-top:18px;color:v
     </form>
   </section>
 
+  <!-- ============ LOGIN / SIGN UP (Admin & Customer) ============ -->
+  <section class="view" id="view-auth">
+    <div class="sec-head"><div><h2>Login / Sign Up</h2><p>Customers book their own tickets. Admins manage all bookings and reports. Each role has its own login page.</p></div></div>
+    <div class="card" style="max-width:560px">
+      <div id="authTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+        <button class="btn ghost small" data-authmode="customer-login">Customer Login</button>
+        <button class="btn ghost small" data-authmode="customer-signup">Customer Sign Up</button>
+        <button class="btn ghost small" data-authmode="admin-login">Admin Login</button>
+        <button class="btn ghost small" data-authmode="admin-signup">Admin Sign Up</button>
+      </div>
+      <h3 id="authTitle" style="margin-top:0">Customer Login</h3>
+      <form id="authForm">
+        <div class="field" id="authNameField"><label for="authName">Full name</label><input id="authName" placeholder="e.g. Aarav Sharma"></div>
+        <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" required placeholder="you@example.com"></div>
+        <div class="field"><label for="authPass">Password</label><input id="authPass" type="password" required minlength="6" placeholder="At least 6 characters"></div>
+        <button class="btn amber" id="authSubmit" type="submit">Login</button>
+      </form>
+      <p id="authMsg" style="display:none;color:var(--muted);font-size:.9rem"></p>
+      <p style="color:var(--muted);font-size:.85rem;line-height:1.6">Demo only: accounts are saved in this browser only (localStorage), and bookings still reset when the page reloads, like the rest of this demo. Passwords are stored as a simple demo hash, never in plain text — this is not production-grade security. For real accounts with a saved database, use the Flask version in <span class="mono">cross_platform_web/</span>.</p>
+    </div>
+  </section>
+
   <!-- ============ RESERVATIONS ============ -->
   <section class="view" id="view-reservations">
     <div class="sec-head" style="margin-top:6px">
-      <div><h2>Reservations</h2><p>Every booking made in this demo. Open the e-ticket or cancel straight from here.</p></div>
+      <div><h2>Reservations</h2><p id="resNote">Every booking made in this demo. Open the e-ticket or cancel straight from here.</p></div>
     </div>
     <div class="card" style="padding:18px 20px;margin-bottom:16px">
       <div class="field" style="margin-bottom:10px"><label>Find a booking by PNR</label></div>
@@ -470,6 +497,66 @@ function inr(n){ return "₹" + Number(n).toLocaleString("en-IN"); }
 /* ================= STATE (in-memory for this demo session) ================= */
 var reservations = [];
 var refunds = [];
+
+/* ================= AUTH (Admin & Customer, demo-only) =================
+   Accounts live in this browser only (localStorage). Bookings in this
+   demo are still in-memory and reset on reload, as before. Passwords
+   are stored as a simple demo hash, never in plain text — this is a
+   demo, not production security. The Flask version uses proper hashing. */
+var currentUser = null;
+var authMode = "customer-login";
+function demoHash(str){ var h = 5381; for(var i=0;i<str.length;i++){ h = ((h<<5)+h+str.charCodeAt(i))>>>0; } return "h"+h.toString(16); }
+function loadUsers(){ try{ return JSON.parse(localStorage.getItem("horizon_demo_users") || "[]"); }catch(e){ return []; } }
+function saveUsers(u){ localStorage.setItem("horizon_demo_users", JSON.stringify(u)); }
+function loadSession(){ try{ return JSON.parse(localStorage.getItem("horizon_demo_session") || "null"); }catch(e){ return null; } }
+function saveSession(u){ localStorage.setItem("horizon_demo_session", JSON.stringify(u)); }
+function ownsBooking(r){
+  if(!currentUser) return false;
+  if(currentUser.role === "admin") return true;
+  return r.userEmail != null && r.userEmail === currentUser.email;
+}
+function updateAuthUI(){
+  var badge = document.getElementById("authBadge");
+  var logoutBtn = document.getElementById("logoutBtn");
+  var navBtn = document.getElementById("authNavBtn");
+  if(currentUser){
+    badge.textContent = "Hello, " + currentUser.name + " (" + currentUser.role + ")";
+    logoutBtn.style.display = "";
+    if(navBtn) navBtn.style.display = "none";
+  } else {
+    badge.textContent = "";
+    logoutBtn.style.display = "none";
+    if(navBtn) navBtn.style.display = "";
+  }
+  var note = document.getElementById("resNote");
+  if(note) note.textContent = currentUser && currentUser.role === "admin"
+    ? "All bookings in this demo (admin view). Open the e-ticket or cancel straight from here."
+    : "Only your own bookings are shown here. Open the e-ticket or cancel straight from here.";
+}
+function authTitles(){
+  return {
+    "customer-login": ["Customer Login", "Login"],
+    "customer-signup": ["Customer Sign Up", "Create Customer Account"],
+    "admin-login": ["Admin Login", "Login as Admin"],
+    "admin-signup": ["Admin Sign Up", "Create Admin Account"]
+  };
+}
+function setAuthMode(mode){
+  authMode = mode;
+  var t = authTitles()[mode];
+  document.getElementById("authTitle").textContent = t[0];
+  document.getElementById("authSubmit").textContent = t[1];
+  var isSignup = mode.indexOf("signup") !== -1;
+  document.getElementById("authNameField").style.display = isSignup ? "" : "none";
+  document.getElementById("authName").required = isSignup;
+  document.querySelectorAll("#authTabs button").forEach(function(b){
+    b.classList.toggle("active", b.getAttribute("data-authmode") === mode);
+  });
+}
+function showAuth(mode){
+  setAuthMode(mode || "customer-login");
+  showView("auth");
+}
 function seed(){
   var t = todayISO();
   var seedData = [
@@ -484,7 +571,7 @@ function seed(){
     var f = flightByNo(s.flightNo);
     return {pnr:s.pnr, firstName:s.first, lastName:s.last, age:s.age, gender:s.gender, flightNo:s.flightNo,
       travelDate:s.travelDate, cls:s.cls, seatPref:s.seatPref, meal:s.meal, special:s.special,
-      fare:f.fares[s.cls], status:s.status, seatNo: s.status==="Confirmed" ? seatFor(i, s.seatPref) : "—", bookedOn:t};
+      fare:f.fares[s.cls], status:s.status, seatNo: s.status==="Confirmed" ? seatFor(i, s.seatPref) : "—", bookedOn:t, userEmail:null};
   });
 }
 function seatFor(n, pref){
@@ -508,6 +595,16 @@ function genPNR(){
 
 /* ================= NAV ================= */
 function showView(name){
+  if((name === "book" || name === "reservations") && !currentUser){
+    toast("Please login first to continue.");
+    showAuth("customer-login");
+    return;
+  }
+  if(name === "reports" && (!currentUser || currentUser.role !== "admin")){
+    if(!currentUser){ toast("Please login as admin first."); showAuth("admin-login"); }
+    else { toast("Only admins can open Reports."); }
+    return;
+  }
   document.querySelectorAll(".view").forEach(function(v){ v.classList.remove("active"); });
   document.getElementById("view-"+name).classList.add("active");
   document.querySelectorAll("#mainNav button").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-view")===name); });
@@ -594,7 +691,10 @@ function renderFlights(){
 var resFilter = "";
 function statusBadge(s){ return '<span class="badge '+(s==="Confirmed"?"confirmed":s==="Wait-listed"?"waiting":"cancelled")+'">'+s+'</span>'; }
 function renderReservations(){
-  var list = reservations.filter(function(r){ return !resFilter || r.pnr===resFilter; });
+  var list = reservations.filter(function(r){
+    if(currentUser && currentUser.role === "admin") return !resFilter || r.pnr===resFilter;
+    return ownsBooking(r) && (!resFilter || r.pnr===resFilter);
+  });
   var box = document.getElementById("resList");
   if(!list.length){
     box.innerHTML = '<div class="card empty"><b>No reservations found</b>Bookings you make will appear here with their PNR, status and e-ticket.</div>';
@@ -700,6 +800,7 @@ function updateSummary(){
 });
 document.getElementById("bookForm").addEventListener("submit", function(e){
   e.preventDefault();
+  if(!currentUser){ toast("Please login first to continue."); showAuth("customer-login"); return; }
   var f = flightByNo(document.getElementById("bFlight").value);
   var date = document.getElementById("bDate").value;
   var cls = document.getElementById("bClass").value;
@@ -719,7 +820,7 @@ document.getElementById("bookForm").addEventListener("submit", function(e){
     special: document.getElementById("bSpecial").value.trim(),
     fare: f.fares[cls], status: status,
     seatNo: status==="Confirmed" ? seatFor(confirmedCount(f.no, date, cls) + reservations.length, document.getElementById("bSeat").value) : "—",
-    bookedOn: todayISO()
+    bookedOn: todayISO(), userEmail: currentUser.email
   };
   reservations.push(r);
   e.target.reset();
@@ -754,6 +855,7 @@ document.getElementById("overlay").addEventListener("click", function(e){ if(e.t
 
 function showTicket(pnr, isNew){
   var r = findRes(pnr); if(!r) return;
+  if(!ownsBooking(r)){ toast("You can only view your own bookings."); return; }
   openModal('<h3>'+(isNew ? "Booking "+(r.status==="Confirmed"?"confirmed":"wait-listed")+" 🎉" : "Your e-ticket")+'</h3>'+
     '<p class="sub">PNR <b class="mono">'+r.pnr+'</b> — keep this code to view, print or cancel your booking anytime.</p>'+
     ticketHTML(r)+
@@ -785,11 +887,13 @@ function downloadDoc(filename, title, innerHTML){
 }
 function downloadTicket(pnr){
   var r = findRes(pnr); if(!r) return;
+  if(!ownsBooking(r)){ toast("You can only view your own bookings."); return; }
   downloadDoc("Horizon-Ticket-"+r.pnr+".html", "E-Ticket "+r.pnr, ticketHTML(r));
   toast("Ticket downloaded — open the file to print it.");
 }
 function askCancel(pnr){
   var r = findRes(pnr); if(!r) return;
+  if(!ownsBooking(r)){ toast("You can only cancel your own bookings."); return; }
   var diff = daysBetween(todayISO(), r.travelDate);
   var pct = 100, rule = "";
   if(r.status==="Wait-listed"){ pct = 100; rule = "Wait-listed bookings are always refunded in full."; }
@@ -818,6 +922,7 @@ function doCancel(pnr){
 }
 function showReceipt(pnr){
   var r = findRes(pnr); if(!r) return;
+  if(!ownsBooking(r)){ toast("You can only view your own bookings."); return; }
   var rec = null; for(var i=refunds.length-1;i>=0;i--) if(refunds[i].pnr===pnr){ rec = refunds[i]; break; }
   if(!rec) return;
   var f = flightByNo(r.flightNo), p = sectorParts(f);
@@ -849,6 +954,7 @@ function receiptHTML(r, rec){
 }
 function downloadReceipt(pnr){
   var r = findRes(pnr); if(!r) return;
+  if(!ownsBooking(r)){ toast("You can only view your own bookings."); return; }
   var rec = null; for(var i=refunds.length-1;i>=0;i--) if(refunds[i].pnr===pnr){ rec = refunds[i]; break; }
   if(!rec) return;
   downloadDoc("Horizon-Refund-"+r.pnr+".html", "Refund Receipt "+r.pnr, receiptHTML(r, rec));
@@ -873,6 +979,7 @@ document.getElementById("pnrFind").addEventListener("click", function(){
   if(!v){ msg.style.display="block"; msg.textContent = "Type a PNR first — it is the 5-character code on your booking."; return; }
   var r = findRes(v);
   if(!r){ msg.style.display="block"; msg.textContent = "No booking found with PNR “"+v+"”. Check the code and try again."; return; }
+  if(!ownsBooking(r)){ msg.style.display="block"; msg.textContent = "That booking belongs to another account. Login with its account to view it."; return; }
   msg.style.display = "none";
   if(r.status==="Cancelled"){ showReceipt(r.pnr); }
   else { showTicket(r.pnr, false); }
@@ -922,6 +1029,42 @@ function toast(msg){
   toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 3400);
 }
 
+/* ================= AUTH UI EVENTS ================= */
+document.getElementById("authTabs").addEventListener("click", function(e){
+  var b = e.target.closest("button[data-authmode]"); if(b) setAuthMode(b.getAttribute("data-authmode"));
+});
+document.getElementById("authForm").addEventListener("submit", function(e){
+  e.preventDefault();
+  var isSignup = authMode.indexOf("signup") !== -1;
+  var role = authMode.indexOf("admin") === 0 ? "admin" : "customer";
+  var name = document.getElementById("authName").value.trim();
+  var email = document.getElementById("authEmail").value.trim().toLowerCase();
+  var pass = document.getElementById("authPass").value;
+  var msg = document.getElementById("authMsg");
+  if(pass.length < 6){ msg.style.display="block"; msg.textContent = "Password must be at least 6 characters."; return; }
+  var users = loadUsers();
+  var existing = null; users.forEach(function(u){ if(u.email===email) existing = u; });
+  if(isSignup){
+    if(!name){ msg.style.display="block"; msg.textContent = "Please enter your full name."; return; }
+    if(existing){ msg.style.display="block"; msg.textContent = "This email is already registered. Please login instead."; return; }
+    var nu = {name:name, email:email, passHash:demoHash(pass), role:role};
+    users.push(nu); saveUsers(users);
+    currentUser = {name:nu.name, email:nu.email, role:nu.role}; saveSession(currentUser);
+    updateAuthUI(); toast("Welcome, " + name + "! Your " + role + " account has been created.");
+    showView("dashboard");
+  } else {
+    if(!existing || existing.passHash !== demoHash(pass)){ msg.style.display="block"; msg.textContent = "Invalid email or password. Please try again."; return; }
+    if(existing.role !== role){ msg.style.display="block"; msg.textContent = "This is a " + existing.role + " account. Please use " + (existing.role === "admin" ? "Admin" : "Customer") + " Login."; return; }
+    currentUser = {name:existing.name, email:existing.email, role:existing.role}; saveSession(currentUser);
+    updateAuthUI(); toast("Welcome back, " + existing.name + "!");
+    showView("dashboard");
+  }
+});
+document.getElementById("logoutBtn").addEventListener("click", function(){
+  currentUser = null; localStorage.removeItem("horizon_demo_session");
+  updateAuthUI(); toast("You have been logged out."); showView("dashboard");
+});
+
 /* ================= INIT ================= */
 function initBookDefaults(){
   document.getElementById("bDate").value = addDaysISO(todayISO(),1);
@@ -933,8 +1076,11 @@ function renderAll(){
   document.getElementById("fullSchedule").innerHTML = scheduleHTML();
   renderSectors(); renderAircraft(); renderFlights(); renderReservations(); renderReports();
 }
+currentUser = loadSession();
 seed();
 fillFlightSelect();
+setAuthMode("customer-login");
+updateAuthUI();
 fillQuick();
 initBookDefaults();
 updateSummary();
