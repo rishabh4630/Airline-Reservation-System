@@ -264,6 +264,25 @@ footer{margin-top:48px;border-top:1px solid var(--line);padding-top:18px;color:v
   .res-card{align-items:flex-start}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+/* Premium polish: soft entrance, hover lift, smooth buttons, focus rings */
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.view.active{animation:rise .45s ease both}
+.card,.stat{transition:transform .2s ease,box-shadow .2s ease}
+.card:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(15,46,77,.16)}
+.stat:hover{transform:translateY(-2px)}
+.btn{transition:transform .15s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 4px 14px rgba(14,122,109,.25)}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translateY(0) scale(.98)}
+.nav button{transition:background .15s ease,color .15s ease,transform .15s ease}
+.nav button:hover{transform:translateY(-1px)}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.hero-copy{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 60%,#1d5c54 100%)}
+.brand-mark{transition:transform .25s ease}
+.brand:hover .brand-mark{transform:rotate(-12deg) scale(1.06)}
+tr{transition:background .15s ease}
+tbody tr:hover{background:var(--surface2)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
