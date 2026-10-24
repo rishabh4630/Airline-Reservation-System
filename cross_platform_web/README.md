@@ -17,6 +17,12 @@ with technology that runs everywhere:
 | Visual Studio on Windows | Any editor, on Windows / macOS / Linux |
 | `.exe` output | Open `http://127.0.0.1:5000` in a browser |
 
+## Design
+
+The web interface uses the same look as the GitHub Pages demo — warm
+off-white background, navy top bar with an amber brand mark, teal buttons
+and rounded cards (with dark-mode support from your system setting).
+
 ## Features (same as the original, plus login)
 
 - **Sign Up / Login / Logout** — new in the web version: create an account
