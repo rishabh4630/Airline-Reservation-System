@@ -287,13 +287,13 @@ LAYOUT = """
 <style>
  /* Same look as the GitHub Pages demo: warm off-white background, navy
     top bar, amber brand mark, teal buttons, soft shadows, rounded cards. */
- :root{--bg:#f6f4ef;--surface:#ffffff;--surface2:#eef2f5;--ink:#13273f;--muted:#5d6f84;--faint:#8494a7;
-  --navy:#0f2e4d;--navy2:#17426b;--accent:#0e7a6d;--accent-soft:#e0f1ee;--amber:#f59e0b;
+ :root{--bg:#f4f8fd;--surface:#ffffff;--surface2:#eaf5ff;--ink:#13273f;--muted:#5d6f84;--faint:#8494a7;
+  --navy:#063b78;--navy2:#0b5fa5;--accent:#0878d1;--accent-soft:#eaf5ff;--amber:#f59e0b;
   --danger:#b42318;--danger-soft:#fdecea;--ok:#067647;--ok-soft:#e6f4ea;
-  --line:#e3ded1;--line2:#dbe2ea;--shadow:0 10px 30px rgba(15,46,77,.10);--radius:16px}
+  --line:#dbe7f3;--line2:#dbe2ea;--shadow:0 10px 30px rgba(6,59,120,.10);--radius:16px}
  @media (prefers-color-scheme:dark){
   :root{--bg:#091423;--surface:#101f33;--surface2:#16293f;--ink:#edf3f9;--muted:#a4b6c9;--faint:#75899f;
-   --navy:#0b1e33;--navy2:#14304f;--accent:#2fbfab;--accent-soft:#123a36;--amber:#f0a13c;
+   --navy:#041a33;--navy2:#0a3a6b;--accent:#4aa8ec;--accent-soft:#0d2a4a;--amber:#f0a13c;
    --danger:#ff8a7a;--danger-soft:#3d1a16;--ok:#5fd68f;--ok-soft:#14301f;
    --line:#22344c;--line2:#22344c;--shadow:0 10px 30px rgba(0,0,0,.35)}}
  *{box-sizing:border-box}
@@ -302,13 +302,13 @@ LAYOUT = """
  header{position:sticky;top:0;z-index:40;background:var(--navy);color:#fff;box-shadow:0 4px 18px rgba(9,20,35,.25)}
  .topbar{max-width:1180px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
  .brand{display:flex;align-items:center;gap:11px;margin-right:auto;text-decoration:none;color:#fff}
- .brand-mark{width:38px;height:38px;border-radius:10px;background:#f59e0b;color:#12263f;display:grid;place-items:center;font-weight:900;font-size:1.25rem}
+ .brand-mark{width:38px;height:38px;border-radius:10px;background:#0878d1;color:#fff;display:grid;place-items:center;font-weight:900;font-size:1.25rem}
  .brand b{font-size:1.12rem;display:block;line-height:1.1}
  .brand span{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:#bcd2e8;font-weight:600}
  nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
  nav a{color:#d7e5f2;text-decoration:none;padding:8px 13px;border-radius:999px;font-weight:600;font-size:.9rem}
  nav a:hover{background:rgba(255,255,255,.10);color:#fff}
- nav a.cta{background:#f59e0b;color:#12263f}
+ nav a.cta{background:#0878d1;color:#fff}
  nav .hello{color:#c9dcee;font-size:.9rem;font-weight:600}
  main{max-width:1180px;margin:0 auto;padding:26px 18px 64px}
  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:18px}
@@ -335,9 +335,9 @@ LAYOUT = """
  main>*:nth-child(2){animation-delay:.05s} main>*:nth-child(3){animation-delay:.1s}
  .card{transition:transform .2s ease,box-shadow .2s ease}
  .card:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(15,46,77,.16)}
- .hero{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 60%,#1d5c54 100%);position:relative;overflow:hidden}
+ .hero{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 55%,#0878d1 100%);position:relative;overflow:hidden}
  .hero:after{content:"✈";position:absolute;right:18px;bottom:-24px;font-size:9rem;opacity:.08;transform:rotate(-18deg)}
- button,.btn{transition:transform .15s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 4px 14px rgba(14,122,109,.25)}
+ button,.btn{transition:transform .15s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 4px 14px rgba(8,120,209,.25)}
  button:hover,.btn:hover{transform:translateY(-1px)}
  button:active,.btn:active{transform:translateY(0) scale(.98)}
  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
@@ -346,7 +346,7 @@ LAYOUT = """
  .brand-mark{transition:transform .25s ease} .brand:hover .brand-mark{transform:rotate(-12deg) scale(1.06)}
  /* Premium auth card */
  .auth-card{max-width:460px;margin:28px auto;padding:30px 30px 24px;border-radius:22px;box-shadow:0 20px 44px rgba(15,46,77,.16);position:relative;overflow:hidden}
- .auth-card:before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--navy),var(--accent),var(--amber))}
+ .auth-card:before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--navy),var(--accent),#4aa8ec)}
  .auth-badge{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--navy);font-weight:800;font-size:.82rem;padding:7px 12px;border-radius:999px;margin-bottom:14px}
  .auth-card h2{font-size:1.7rem;margin:0 0 6px}
  .auth-sub{color:var(--muted);margin:0 0 20px;line-height:1.55}
@@ -356,6 +356,13 @@ LAYOUT = """
  .auth-switch{text-align:center;color:var(--muted);margin-top:16px}
  .auth-note{text-align:center;color:var(--faint);font-size:.85rem;margin-top:8px;line-height:1.5}
  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+ .search-card{padding:24px}
+ .search-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end}
+ .search-form input,.search-form select{width:100%;margin:4px 0 0}
+ .route-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+ .route-card h3{margin:0 0 4px} .route-card .from-fare{font-size:1.4rem;font-weight:900;color:var(--navy)}
+ .trust-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+ .faq details{border-bottom:1px solid var(--line2);padding:10px 0} .faq summary{font-weight:700;cursor:pointer}
  @media print{header,.noprint{display:none}}
 </style></head><body>
 <header><div class="topbar">
@@ -366,6 +373,7 @@ LAYOUT = """
  <a class="cta" href="{{ url_for('new_reservation') }}">New Reservation</a>
  <a href="{{ url_for('cancel') }}">Cancel Reservation</a>
  <a href="{{ url_for('flights') }}">Flights</a>
+ <a href="{{ url_for('flight_status') }}">Flight Status</a>
  <a href="{{ url_for('schedule') }}">Schedule Flights</a>
  <a href="{{ url_for('sectors') }}">Sectors</a>
  <a href="{{ url_for('aircraft') }}">Aircraft</a>
@@ -487,17 +495,53 @@ def home():
     cards = "".join(
         f'<div class="card"><div class="stat">{v}</div><div>{k}</div></div>' for k, v in stats.items()
     )
+    cities = ["Delhi", "Mumbai", "Bengaluru", "Goa", "Lucknow"]
+    city_opts = "".join(f'<option>{c}</option>' for c in cities)
+    routes = [
+        ("Delhi", "Mumbai", "HZ101", "06:00 - 08:10", 4500),
+        ("Delhi", "Bengaluru", "HZ202", "09:00 - 11:45", 5200),
+        ("Mumbai", "Goa", "HZ303", "13:00 - 14:15", 3200),
+        ("Lucknow", "Delhi", "HZ404", "07:30 - 08:40", 2800),
+    ]
+    route_cards = "".join(
+        f'<div class="card route-card"><h3>{a} to {b}</h3><p style="color:var(--muted)">{fno} - {tm} - Non-stop</p>'
+        f'<p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br>'
+        f'<span class="from-fare">Rs.{fare:,}</span></p>'
+        f'<p><a class="btn" href="{url_for("flights")}?from_city={a}&to_city={b}">View Flights</a> '
+        f'<a class="btn ghost" href="{url_for("new_reservation")}?flight={fno}">Book Now</a></p></div>'
+        for a, b, fno, tm, fare in routes
+    )
     body = f"""
     <div class="hero"><span class="hero-tag">Horizon Airways</span>
-    <h1>Book a flight in under a minute.</h1>
-    <p>Bookings, reports and master tables — same features as the original VB.NET
-    desktop app, now in the browser on any operating system.</p>
-    <p><a class="btn light" href="{url_for('new_reservation')}">Make a Reservation</a>
-    <a class="btn" style="background:#fff;color:var(--navy)" href="{url_for('flights')}">View Flights</a></p></div>
+    <h1>Fly smart. Book in under a minute.</h1>
+    <p>Search a route, compare fares across classes, and get a confirmed PNR with an e-ticket instantly. When a class fills up, your booking joins the waiting list instead.</p>
+    <div class="card search-card" style="margin:20px 0 0;color:var(--ink)">
+    <form class="search-form" method="get" action="{url_for('flights')}">
+    <label>From<select name="from_city"><option value="">Anywhere</option>{city_opts}</select></label>
+    <label>To<select name="to_city"><option value="">Anywhere</option>{city_opts}</select></label>
+    <label>Travel Date<input type="date" name="travel_date"></label>
+    <label>Class<select name="travel_class"><option>Economy</option><option>Business</option><option>First</option></select></label>
+    <label>Sort<select name="sort"><option value="cheapest">Cheapest first</option><option value="earliest">Earliest departure</option><option value="fastest">Fastest</option></select></label>
+    <button>Search Flights</button></form></div></div>
+    <h2 style="margin:6px 0 12px">Popular routes</h2>
+    <div class="route-grid">{route_cards}</div>
     <div class="grid">{cards}</div>
+    <div class="card"><h3>Why book with Horizon?</h3><div class="trust-grid">
+    <div><b>Instant PNR</b><p style="color:var(--muted)">Every booking gets a 5-character PNR and a printable e-ticket right away.</p></div>
+    <div><b>Transparent fares</b><p style="color:var(--muted)">The fare on your ticket is exactly the flight's class fare - no extra charges are added in this app.</p></div>
+    <div><b>Easy cancellation</b><p style="color:var(--muted)">Wait-listed bookings get a full refund. Confirmed bookings within 1 day of travel get 90%, otherwise a full refund.</p></div>
+    <div><b>Seat &amp; meal choice</b><p style="color:var(--muted)">Pick Window/Aisle and Veg/Non-veg while booking, just like a full booking flow.</p></div>
+    </div></div>
+    <div class="card faq"><h3>Frequently asked questions</h3>
+    <details><summary>What happens if my class is full?</summary><p style="color:var(--muted)">Your booking becomes Wait-listed. If a Confirmed Economy passenger cancels, the earliest Wait-listed passenger is promoted to Confirmed automatically.</p></details>
+    <details><summary>How do refunds work?</summary><p style="color:var(--muted)">Wait-listed: full refund. Confirmed and travelling within 1 day: 90% refund. Confirmed otherwise: full refund. A refund receipt is generated on cancellation.</p></details>
+    <details><summary>How do I become an admin?</summary><p style="color:var(--muted)">There is no separate admin signup. Logging in with the owner's email automatically signs you in as an admin, with access to Reports and flight management.</p></details>
+    <details><summary>Is this a real airline booking?</summary><p style="color:var(--muted)">No - this is a student project demo. Bookings are stored in this app's database and are not real airline tickets. Real flight inventory and payment would need a supported airline provider integration.</p></details>
+    </div>
     <div class="card"><h3>Quick links</h3>
     <p><a class="btn" href="{url_for('new_reservation')}">Make a Reservation</a>
     <a class="btn ghost" href="{url_for('cancel')}">Cancel a Reservation</a>
+    <a class="btn ghost" href="{url_for('flight_status')}">Check Flight Status</a>
     <a class="btn ghost" href="{url_for('reports')}">View Reports</a></p></div>
     """
     return page("Main Menu", body)
@@ -594,9 +638,39 @@ def flights():
         db.commit()
         flash("Flight saved.")
         return redirect(url_for("flights"))
-    rows = db.execute(
-        "SELECT * FROM flights ORDER BY flight_no"
+    _from = request.args.get("from_city", "")
+    _to = request.args.get("to_city", "")
+    _sort = request.args.get("sort", "cheapest")
+    _travel_date = request.args.get("travel_date", "")
+    _tclass = request.args.get("travel_class", "")
+    raw = db.execute(
+        """SELECT f.*, s.origin, s.destination FROM flights f
+           JOIN sectors s ON s.sector_id=f.sector_id ORDER BY f.flight_no"""
     ).fetchall()
+    def _mins(t):
+        try:
+            h, m = t.split(":"); return int(h) * 60 + int(m)
+        except Exception:
+            return 0
+    rows = []
+    for r in raw:
+        if _from and r["origin"] != _from:
+            continue
+        if _to and r["destination"] != _to:
+            continue
+        d = dict(r)
+        fares = [f for f in (r["first_fare"], r["business_fare"], r["economy_fare"]) if f]
+        d["from_fare"] = min(fares) if fares else 0
+        dur = (_mins(r["arr_time"]) - _mins(r["dep_time"])) % (24 * 60)
+        d["duration"] = f"{dur // 60}h {dur % 60:02d}m"
+        d["_dur"] = dur
+        rows.append(d)
+    if _sort == "earliest":
+        rows.sort(key=lambda r: r["dep_time"])
+    elif _sort == "fastest":
+        rows.sort(key=lambda r: r["_dur"])
+    else:
+        rows.sort(key=lambda r: r["from_fare"])
     sector_opts = "".join(
         f'<option value="{r["sector_id"]}">{r["sector_id"]} ({r["origin"]} → {r["destination"]})</option>'
         for r in db.execute("SELECT * FROM sectors ORDER BY sector_id")
@@ -607,9 +681,28 @@ def flights():
     )
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     day_opts = "".join(f'<option>{d}</option>' for d in days)
+    _cities = ["Delhi", "Mumbai", "Bengaluru", "Goa", "Lucknow"]
+    def _copts(sel):
+        return "".join(f'<option{" selected" if c == sel else ""}>{c}</option>' for c in _cities)
+    _note = ""
+    if _from or _to:
+        _note = f'<p style="color:var(--muted)">Showing flights {_from or "anywhere"} to {_to or "anywhere"}'
+        if _travel_date:
+            _note += f' on {_travel_date}'
+        if _tclass:
+            _note += f' - { _tclass} class fares highlighted in the fare columns below'
+        _note += '.</p>'
+    _empty = "" if rows else '<p><b>No direct flights on this route yet.</b> Try another route, or <a href="/flights">view all flights</a>.</p>'
     body = f"""
     <div class="card"><h2>Flights</h2>
-    {table_html(rows, [('flight_no','Flight No.'),('sector_id','Sector ID'),('aircraft_id','Aircraft Type ID'),('dep_time','Departure'),('arr_time','Arrival'),('weekday1','WeekDay 1'),('weekday2','WeekDay 2'),('first_fare','First Fare ($)'),('business_fare','Business Fare ($)'),('economy_fare','Economy Fare ($)')])}
+    <form class="search-form" method="get" action="{url_for('flights')}">
+    <label>From<select name="from_city"><option value="">Anywhere</option>{_copts(_from)}</select></label>
+    <label>To<select name="to_city"><option value="">Anywhere</option>{_copts(_to)}</select></label>
+    <label>Sort<select name="sort"><option value="cheapest"{" selected" if _sort == "cheapest" else ""}>Cheapest first</option><option value="earliest"{" selected" if _sort == "earliest" else ""}>Earliest departure</option><option value="fastest"{" selected" if _sort == "fastest" else ""}>Fastest</option></select></label>
+    <button>Search</button></form>
+    {_note}{_empty}
+    {table_html(rows, [('flight_no','Flight No.'),('sector_id','Route'),('origin','From'),('destination','To'),('dep_time','Departure'),('arr_time','Arrival'),('duration','Duration'),('from_fare','From Fare (Rs.)'),('first_fare','First Fare (Rs.)'),('business_fare','Business Fare (Rs.)'),('economy_fare','Economy Fare (Rs.)')])}
+    <p style="color:var(--muted);font-size:.9rem">Fare comparison: First, Business and Economy fares are shown side by side for every flight. A fare of 0 means that class is not offered on that flight. All flights shown are non-stop.</p>
     </div>
     <div class="card"><h3>Add / Edit Flight</h3><form method="post">
     <label>Flight Number<input name="flight_no" required placeholder="HZ101"></label>
@@ -663,6 +756,32 @@ def schedule():
     <button>Schedule</button></form></div>
     """
     return page("Schedule Flights", body)
+
+
+@app.route("/flight-status")
+def flight_status():
+    db = get_db()
+    fno = request.args.get("flight_no", "").strip().upper()
+    result = ""
+    if fno:
+        r = db.execute(
+            """SELECT f.*, s.origin, s.destination FROM flights f
+               JOIN sectors s ON s.sector_id=f.sector_id WHERE f.flight_no=?""", (fno,)
+        ).fetchone()
+        if r:
+            fares = [f for f in (r["first_fare"], r["business_fare"], r["economy_fare"]) if f]
+            result = f"""<div class="card"><h3>{r["flight_no"]} - {r["origin"]} to {r["destination"]}</h3>
+            <p><b>Departure:</b> {r["dep_time"]} &nbsp; <b>Arrival:</b> {r["arr_time"]} &nbsp; <b>Aircraft:</b> {r["aircraft_id"]}</p>
+            <p><b>Operates:</b> {r["weekday1"]} and {r["weekday2"]} &nbsp; <b>Starting from:</b> Rs.{min(fares) if fares else 0:,}</p>
+            <p style="color:var(--muted)">Status: Scheduled (as per this app's timetable). This is a demo project, not a live airline feed, so real-time delays are not shown.</p>
+            <p><a class="btn" href="{url_for('new_reservation')}?flight={r["flight_no"]}">Book This Flight</a></p></div>"""
+        else:
+            result = f'<div class="card"><p><b>No flight found for {fno}.</b> Try HZ101, HZ202, HZ303 or HZ404.</p></div>'
+    body = f"""<div class="card"><h2>Flight Status</h2>
+    <form class="search-form" method="get" action="{url_for('flight_status')}">
+    <label>Flight Number<input name="flight_no" value="{fno}" placeholder="e.g. HZ101" required></label>
+    <button>Check Status</button></form></div>{result}"""
+    return page("Flight Status", body)
 
 
 # --------------------------------------------------------------------------
@@ -724,8 +843,10 @@ def new_reservation():
         db.commit()
         flash(f"Reservation created. PNR: {pnr} — Status: {status} — Fare: $ {fare:.2f}")
         return redirect(url_for("ticket", pnr=pnr))
+    _sel_flight = request.args.get("flight", "")
+    _sel_class = request.args.get("travel_class", "")
     flight_opts = "".join(
-        f'<option value="{r["flight_no"]}">{r["flight_no"]} — {r["origin"]} → {r["destination"]} ({r["dep_time"]})</option>'
+        f'<option value="{r["flight_no"]}"{" selected" if r["flight_no"] == _sel_flight else ""}>{r["flight_no"]} — {r["origin"]} → {r["destination"]} ({r["dep_time"]})</option>'
         for r in db.execute(
             """SELECT f.flight_no, f.dep_time, s.origin, s.destination FROM flights f
                JOIN sectors s ON s.sector_id=f.sector_id ORDER BY f.flight_no"""
@@ -741,12 +862,12 @@ def new_reservation():
     <h3>Flight Details</h3>
     <label>Flight<select name="flight_no">{flight_opts}</select></label>
     <label>Travel Date<input name="travel_date" type="date" required></label>
-    <label>Class<select name="travel_class"><option>Economy</option><option>Business</option><option>First</option></select></label>
+    <label>Class<select name="travel_class"><option{" selected" if _sel_class == "Economy" else ""}>Economy</option><option{" selected" if _sel_class == "Business" else ""}>Business</option><option{" selected" if _sel_class == "First" else ""}>First</option></select></label>
     <label>Seat Preference<select name="seat_pref"><option>Window</option><option>Aisle</option></select></label>
     <label>Meal Preference<select name="meal_pref"><option>Veg</option><option>Non-veg</option></select></label>
     <label>Special Service Request<input name="ssr" placeholder="e.g. Wheelchair"></label>
     <p><button>Save Reservation &amp; Print Ticket</button></p>
-    <p style="font-size:13px;color:#555">Fare is taken automatically from the flight's class fare.
+    <p style="font-size:13px;color:#555">Transparent pricing: the fare on your ticket is exactly the flight's class fare - no extra charges are added in this app. Fare is taken automatically from the flight's class fare.
     If no seat is available in the chosen class, the status becomes <b>Wait-listed</b>
     (same seat-availability check as the original app).</p>
     </form></div>
