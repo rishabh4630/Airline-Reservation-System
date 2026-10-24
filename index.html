@@ -314,6 +314,11 @@ tbody tr:hover{background:var(--surface2)}
  .route-card{padding:20px}
  .route-card .btn{margin-top:12px}
  .grid4{margin-bottom:20px}
+
+ /* Card padding fix: plain .card had no padding, so text touched the card edge */
+ .card{padding:20px;margin-bottom:18px}
+ .card>h3:first-child{margin-top:0}
+ .card>h2:first-child{margin-top:0}
 </style>
 </head>
 <body>
