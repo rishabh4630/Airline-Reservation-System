@@ -20,6 +20,7 @@ import json
 import math
 import os
 import random
+import re
 import sqlite3
 import string
 import urllib.parse
@@ -902,8 +903,12 @@ def register():
         name = request.form["name"].strip()
         email = request.form["email"].strip().lower()
         password = request.form["password"]
-        if len(password) < 6:
-            flash("Password must be at least 6 characters.")
+        if not name:
+            flash("Please enter your full name.")
+        elif not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$", email):
+            flash("Please enter a valid email address (e.g. name@example.com).")
+        elif len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"[0-9]", password):
+            flash("Password must be at least 8 characters and include both letters and numbers.")
         elif get_db().execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
             flash("This email is already registered. Please login instead.")
             return redirect(url_for("login"))
@@ -925,7 +930,7 @@ def register():
     <p class="auth-sub">Book flights, view your tickets and manage your reservations.</p><form method="post">
     <label>Full Name<input name="name" required placeholder="e.g. Aarav Sharma"></label>
     <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
-    <label>Password<input name="password" type="password" minlength="6" required placeholder="At least 6 characters"></label>
+    <label>Password<input name="password" type="password" minlength="8" required placeholder="At least 8 characters, letters + numbers"></label>
     <button>Create Account</button></form>
     <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
     """
