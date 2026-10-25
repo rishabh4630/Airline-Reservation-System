@@ -390,6 +390,8 @@ html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-eve
       <div><h2>Today's schedule</h2><p>All four Horizon Airways flights, in departure order.</p></div>
       <button class="btn navy small" data-goto="flights">Full schedule &amp; fares</button>
     </div>
+    <div class="sec-head"><div><h2>Featured route · Delhi → Mumbai</h2><p>Live API info — bina search ke, kal ki date ke liye.</p></div></div>
+    <div id="homeRouteInfo"></div>
     <div class="card sched" id="dashSchedule"></div>
 
     <div class="sec-head">
@@ -1195,8 +1197,8 @@ function haversineKm(a, b){
   var h = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(a[0]*Math.PI/180) * Math.cos(b[0]*Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
   return r * 2 * Math.asin(Math.sqrt(h));
 }
-function loadRouteInfo(fromCode, toCode, date){
-  var el = document.getElementById("routeInfoBox");
+function loadRouteInfo(fromCode, toCode, date, boxId){
+  var el = document.getElementById(boxId || "routeInfoBox");
   if(!el) return;
   var fromCity = CITIES[fromCode], toCity = CITIES[toCode];
   if(!fromCity || !toCity){ el.innerHTML = ""; return; }
@@ -1282,9 +1284,10 @@ function loadRouteInfo(fromCode, toCode, date){
     if(!parts.length && !guideHtml && !weekHtml){
       el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai (live service se data nahi mila).</p></div>';
     } else {
+      var bookNote = (boxId === "homeRouteInfo") ? "booking ke liye upar search karo." : "booking ke liye neeche wali flights use karo.";
       var stripHtml = parts.length ? '<div class="card"><p><b>Route info:</b> ' + parts.join(" &middot; ") + "</p>" +
         '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide) / AirportMiles (airport) / Frankfurter (currency) / India Public Holidays (holiday). Ye sirf jaankari hai — ' +
-        "booking ke liye neeche wali flights use karo.</p></div>" : "";
+        bookNote + "</p></div>" : "";
       el.innerHTML = stripHtml + guideHtml + weekHtml;
     }
   }).catch(function(){
@@ -1377,6 +1380,7 @@ fillQuick();
 initBookDefaults();
 updateSummary();
 renderAll();
+loadRouteInfo("DEL", "BOM", addDaysISO(todayISO(),1), "homeRouteInfo");
 </script>
 </body>
 </html>
