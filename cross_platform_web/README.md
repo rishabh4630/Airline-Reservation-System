@@ -17,13 +17,46 @@ with technology that runs everywhere:
 | Visual Studio on Windows | Any editor, on Windows / macOS / Linux |
 | `.exe` output | Open `http://127.0.0.1:5000` in a browser |
 
-## Features (same as the original)
+## Design
 
-- **Main Menu / Dashboard** — counts for flights, sectors, aircraft, reservations
+The web interface uses the same premium blue-white look as the GitHub
+Pages demo — navy (#063B78) and bright blue (#0878D1) on a light-blue
+background, rounded cards, and dark-mode support from your system
+setting. The home page has a flight search widget, popular routes,
+a Why Horizon section and FAQ.
+
+## Features (same as the original, plus login)
+
+- **Sign Up / Login** — `/register` and `/login`: a customer can book,
+  view and cancel only their own reservations (Reservations shows their
+  own bookings), and logout. There is no separate admin signup/login
+  page: logging in with the owner's email (`OWNER_EMAIL` in `app.py`)
+  automatically signs you in as an admin.
+- **Profile & Settings** — `/profile` (login required): premium profile
+  card with booking stats and recent bookings, edit name, change
+  password, theme (System/Light/Dark), default departure city for the
+  home search, plus clear-my-bookings and delete-account in the danger
+  zone.
+- **Admin (owner only)** — an admin can view all reservations, open
+  Reports, and add/edit flights, sectors, aircraft and schedules.
+- Passwords are stored only as hashes, never in plain text. Booking,
+  cancelling and tickets require login; browsing the master tables does
+  not, but editing them is admin-only.
+- **Main Menu / Dashboard** — flight search (route, date, class, sort),
+  popular routes with starting fares, Why Horizon, FAQ, and counts for
+  flights, sectors, aircraft, reservations
+- **1-stop connecting flights** — when no direct flight exists (e.g. Varanasi → Bengaluru), Flights shows a via-Delhi option with total fare, journey time and layover; each leg is booked separately (2 PNRs)
+- **All-India routes** — 30 airports and 86 demo flights covering Delhi, Mumbai, Lucknow, Bengaluru, Chennai, Hyderabad, Kolkata, Ahmedabad, Jaipur, Patna, Varanasi, Pune, Goa, Kochi, Guwahati, Srinagar, Dehradun, Chandigarh, Bhubaneswar, Indore, Nagpur, Ranchi, Raipur, Amritsar, Coimbatore, Visakhapatnam, Tirupati, Agartala and Port Blair; new routes use demo fares/timings (not live airline data), and older databases gain the new routes automatically on the next run
+- **Premium 4K video background** — a cinematic 4K airplane-window video (cloudscape from above, 3840x2160, 60 sec loop, muted) plays as the page wallpaper, with a blue gradient overlay so text stays readable; the vector flight scene (route arc + boarding pass) stays behind it as fallback while the video buffers, and the video is hidden for users who prefer reduced motion
+- **Flight Status** — `/flight-status`: check a flight's timetable,
+  aircraft and starting fare by flight number (schedule-based, not a
+  live airline feed)
 - **Sectors** — add / edit sectors (Sector ID, origin, destination)
 - **Aircraft** — add / edit aircraft types and class-wise seat counts
 - **Flights** — flight number, sector, aircraft, departure/arrival time,
-  weekdays, and First / Business / Economy fares
+  weekdays, duration, starting fare, and First / Business / Economy
+  fares side by side; filter by route and sort by cheapest / earliest /
+  fastest
 - **Schedule Flights** — schedule a flight on a date
 - **Reservations** — passenger name, age, gender, class, seat preference
   (Window/Aisle), meal preference (Veg/Non-veg), special service request;

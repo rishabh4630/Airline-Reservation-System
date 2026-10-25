@@ -319,7 +319,21 @@ tbody tr:hover{background:var(--surface2)}
  .card{padding:24px;margin-bottom:24px}
  .card>h3:first-child{margin-top:0}
  .card>h2:first-child{margin-top:0}
-html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}.scenery svg{width:100%;height:100%;display:block}.cloud1{animation:drift1 75s linear infinite}.cloud2{animation:drift2 100s linear infinite}.cloud3{animation:drift3 85s linear infinite}.cloud4{animation:drift4 115s linear infinite}@keyframes drift1{from{transform:translate(-420px,120px)}to{transform:translate(2120px,120px)}}@keyframes drift2{from{transform:translate(-380px,240px)}to{transform:translate(2120px,240px)}}@keyframes drift3{from{transform:translate(-500px,70px) scale(.85)}to{transform:translate(2120px,70px) scale(.85)}}@keyframes drift4{from{transform:translate(-350px,320px) scale(1.15)}to{transform:translate(2120px,320px) scale(1.15)}}.plane-fly{animation:fly 32s linear infinite}@keyframes fly{0%{transform:translate(-340px,520px) rotate(-3deg)}45%{transform:translate(900px,360px) rotate(-1deg)}100%{transform:translate(2260px,500px) rotate(-3deg)}}.route-dash{animation:dashmove 3s linear infinite}@keyframes dashmove{to{stroke-dashoffset:-52}}.bp-float{animation:bpf 6s ease-in-out infinite alternate}@keyframes bpf{from{transform:translateY(0)}to{transform:translateY(-12px)}}@media (prefers-color-scheme:dark){.scenery{opacity:.35;filter:saturate(.85) brightness(.8)}}@media (prefers-reduced-motion:reduce){.cloud1,.cloud2,.cloud3,.cloud4,.plane-fly,.route-dash,.bp-float{animation:none}}.video-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}.video-bg video{width:100%;height:100%;object-fit:cover;display:block}.video-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,59,120,.38),rgba(6,59,120,.12) 45%,rgba(234,245,255,.20))}@media (prefers-reduced-motion:reduce){.video-bg{display:none}}.card{background:color-mix(in srgb, var(--surface) 94%, transparent)}</style>
+html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}.scenery svg{width:100%;height:100%;display:block}.cloud1{animation:drift1 75s linear infinite}.cloud2{animation:drift2 100s linear infinite}.cloud3{animation:drift3 85s linear infinite}.cloud4{animation:drift4 115s linear infinite}@keyframes drift1{from{transform:translate(-420px,120px)}to{transform:translate(2120px,120px)}}@keyframes drift2{from{transform:translate(-380px,240px)}to{transform:translate(2120px,240px)}}@keyframes drift3{from{transform:translate(-500px,70px) scale(.85)}to{transform:translate(2120px,70px) scale(.85)}}@keyframes drift4{from{transform:translate(-350px,320px) scale(1.15)}to{transform:translate(2120px,320px) scale(1.15)}}.plane-fly{animation:fly 32s linear infinite}@keyframes fly{0%{transform:translate(-340px,520px) rotate(-3deg)}45%{transform:translate(900px,360px) rotate(-1deg)}100%{transform:translate(2260px,500px) rotate(-3deg)}}.route-dash{animation:dashmove 3s linear infinite}@keyframes dashmove{to{stroke-dashoffset:-52}}.bp-float{animation:bpf 6s ease-in-out infinite alternate}@keyframes bpf{from{transform:translateY(0)}to{transform:translateY(-12px)}}@media (prefers-color-scheme:dark){.scenery{opacity:.35;filter:saturate(.85) brightness(.8)}}@media (prefers-reduced-motion:reduce){.cloud1,.cloud2,.cloud3,.cloud4,.plane-fly,.route-dash,.bp-float{animation:none}}.video-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}.video-bg video{width:100%;height:100%;object-fit:cover;display:block}.video-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,59,120,.38),rgba(6,59,120,.12) 45%,rgba(234,245,255,.20))}@media (prefers-reduced-motion:reduce){.video-bg{display:none}}.card{background:color-mix(in srgb, var(--surface) 94%, transparent)}
+/* ---- Profile & Settings: manual theme overrides (beat the system media query) ---- */
+html[data-theme="dark"]{--bg:#091423;--surface:#101f33;--surface2:#16293f;--ink:#edf3f9;--muted:#a4b6c9;--faint:#75899f;--navy:#0b1e33;--navy2:#14304f;--accent:#4aa8ec;--accent-soft:#0d2a4a;--amber:#f0a13c;--amber-soft:#3a2a12;--danger:#ff8a7a;--danger-soft:#3d1a16;--ok:#5fd68f;--ok-soft:#14301f;--wait:#ffb25e;--wait-soft:#38270e;--line:#2f4566;--line2:#2f4566;--shadow:0 10px 30px rgba(0,0,0,.35)}
+html[data-theme="light"]{--bg:#f4f8fd;--surface:#ffffff;--surface2:#eaf5ff;--ink:#13273f;--muted:#5d6f84;--faint:#8494a7;--navy:#063b78;--navy2:#0b5fa5;--accent:#0878d1;--accent-soft:#eaf5ff;--amber:#d97706;--amber-soft:#fdf0dd;--danger:#b42318;--danger-soft:#fdecea;--ok:#067647;--ok-soft:#e6f4ea;--wait:#b54708;--wait-soft:#fef3e2;--line:#dbe7f3;--line2:#dbe2ea;--shadow:0 10px 30px rgba(6,59,120,.10)}
+.profile-hero{background:linear-gradient(120deg,var(--navy),var(--accent));color:#fff;border-radius:22px;padding:26px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;box-shadow:var(--shadow)}
+.profile-avatar{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.55);display:grid;place-items:center;font-size:1.6rem;font-weight:900;flex:none}
+.profile-hero h2{margin:0;color:#fff}
+.profile-hero p{margin:5px 0 0;color:#dbeeff}
+.role-pill{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:999px;padding:3px 12px;font-size:.8rem;font-weight:700;margin-top:8px}
+.pstat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.pstat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.pstat b{font-size:1.4rem;display:block}
+.pstat span{color:var(--muted);font-size:.85rem}
+@media(max-width:600px){.pstat-grid{grid-template-columns:1fr}}</style>
+<script>try{var _s=localStorage.getItem("horizon_demo_settings");if(_s){_s=JSON.parse(_s).theme;if(_s==="dark"||_s==="light")document.documentElement.setAttribute("data-theme",_s);}}catch(e){}</script>
 </head>
 <body>
 <div class="scenery" aria-hidden="true"><svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
@@ -356,6 +370,7 @@ html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-eve
       <button data-view="book" class="cta">Book a Ticket</button>
       <button data-view="reservations">Reservations</button>
       <button data-view="reports">Reports</button>
+      <button data-view="profile">Profile</button>
       <button data-view="auth" id="authNavBtn">Login / Sign Up</button>
     </nav>
     <div id="authArea" style="display:flex;align-items:center;gap:10px">
@@ -551,6 +566,10 @@ html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-eve
     <div class="card report-panel" id="report-collections"><div class="tbl-wrap"><table>
       <thead><tr><th>Date</th><th>Bookings</th><th>Gross collected</th><th>Refunds issued</th><th>Net collection</th></tr></thead>
       <tbody id="repCollections"></tbody></table></div><div class="total-strip" id="repCollectionsTotal"></div></div>
+  </section>
+
+  <section class="view" id="view-profile">
+    <div id="profileBox"></div>
   </section>
 
   <footer>
@@ -1120,6 +1139,7 @@ function fillQuick(){
   var cities = []; SECTORS.forEach(function(sc){ if(cities.indexOf(sc.from) < 0) cities.push(sc.from); if(cities.indexOf(sc.to) < 0) cities.push(sc.to); });
   document.getElementById("qFrom").innerHTML = cities.map(function(c){ return '<option value="'+c+'">'+c+" · "+CITIES[c]+'</option>'; }).join("");
   document.getElementById("qTo").innerHTML = cities.map(function(c){ return '<option value="'+c+'"'+(c==="BOM"?" selected":"")+'>'+c+" · "+CITIES[c]+'</option>'; }).join("");
+  var _pref = loadSettings().defaultFrom; if(_pref && cities.indexOf(_pref) >= 0) document.getElementById("qFrom").value = _pref;
   document.getElementById("qDate").value = addDaysISO(todayISO(),1);
   document.getElementById("qDate").min = todayISO();
 }
@@ -1381,8 +1401,107 @@ function renderAll(){
   renderStats();
   document.getElementById("dashSchedule").innerHTML = scheduleHTML();
   document.getElementById("fullSchedule").innerHTML = scheduleHTML();
-  renderSectors(); renderAircraft(); renderFlights(); renderReservations(); renderReports();
+  renderSectors(); renderAircraft(); renderFlights(); renderReservations(); renderReports(); renderProfile();
 }
+/* ================= PROFILE & SETTINGS ================= */
+function loadSettings(){ try{ return JSON.parse(localStorage.getItem("horizon_demo_settings") || "{}"); }catch(e){ return {}; } }
+function saveSettings(s){ localStorage.setItem("horizon_demo_settings", JSON.stringify(s)); }
+function applyTheme(t){ if(t === "dark" || t === "light"){ document.documentElement.setAttribute("data-theme", t); } else { document.documentElement.removeAttribute("data-theme"); } }
+function initialsOf(name){ return name.trim().split(/\s+/).map(function(w){ return w[0]; }).slice(0, 2).join("").toUpperCase(); }
+function myReservations(){ return currentUser ? reservations.filter(function(r){ return r.userEmail === currentUser.email; }) : []; }
+function escHtml(s){ return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function renderProfile(){
+  var box = document.getElementById("profileBox");
+  if(!box) return;
+  if(!currentUser){
+    box.innerHTML = '<div class="card"><h2>Profile</h2><p class="sub">Apna profile, bookings aur settings dekhne ke liye pehle login karo.</p><button class="btn" onclick="showView(\'auth\')">Login / Sign Up</button></div>';
+    return;
+  }
+  var mine = myReservations();
+  var conf = mine.filter(function(r){ return r.status === "Confirmed"; }).length;
+  var spent = mine.filter(function(r){ return r.status !== "Cancelled"; }).reduce(function(s, r){ return s + (+r.fare || 0); }, 0);
+  var latest = mine.slice(-5).reverse();
+  var rows = latest.length ? latest.map(function(r){
+    return '<tr><td data-l="PNR" class="mono"><b>' + escHtml(r.pnr) + '</b></td><td data-l="Flight">' + escHtml(r.flightNo) + '</td><td data-l="Date">' + escHtml(r.travelDate) + '</td><td data-l="Class">' + escHtml(r.cls) + '</td><td data-l="Status">' + escHtml(r.status) + '</td><td data-l="Fare">₹' + (+r.fare || 0).toLocaleString("en-IN") + '</td><td><button class="btn small" onclick="showTicket(\'' + escHtml(r.pnr) + '\')">Ticket</button></td></tr>';
+  }).join("") : '<tr><td colspan="7">Abhi koi booking nahi hai. Pehli booking karne ke liye Book a Ticket kholo.</td></tr>';
+  var cities = [];
+  SECTORS.forEach(function(sc){ if(cities.indexOf(sc.from) < 0) cities.push(sc.from); if(cities.indexOf(sc.to) < 0) cities.push(sc.to); });
+  var st = loadSettings();
+  var theme = st.theme || "system";
+  var fromOpts = cities.map(function(c){ return '<option value="' + c + '"' + (st.defaultFrom === c ? ' selected' : '') + '>' + c + ' · ' + CITIES[c] + '</option>'; }).join("");
+  var segBtn = function(t, label){ return '<button data-theme="' + t + '" class="' + (theme === t ? 'active' : '') + '" onclick="setProfileTheme(\'' + t + '\')">' + label + '</button>'; };
+  box.innerHTML =
+    '<div class="profile-hero"><div class="profile-avatar">' + escHtml(initialsOf(currentUser.name)) + '</div>' +
+    '<div><h2>' + escHtml(currentUser.name) + '</h2><p>' + escHtml(currentUser.email) + '</p><span class="role-pill">' + escHtml(currentUser.role) + '</span></div>' +
+    '<div style="margin-left:auto;text-align:right"><p style="margin:0;color:#dbeeff;font-size:.85rem">Demo account<br>is browser me hi save hai</p></div></div>' +
+    '<div class="pstat-grid"><div class="pstat"><b>' + mine.length + '</b><span>Total bookings</span></div>' +
+    '<div class="pstat"><b>' + conf + '</b><span>Confirmed</span></div>' +
+    '<div class="pstat"><b>₹' + spent.toLocaleString("en-IN") + '</b><span>Total kharcha (cancelled chhod kar)</span></div></div>' +
+    '<div class="card" style="margin-top:16px"><h3>Meri haal ki bookings</h3><div class="tbl-wrap"><table><thead><tr><th>PNR</th><th>Flight</th><th>Date</th><th>Class</th><th>Status</th><th>Fare</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<p><button class="btn" onclick="showView(\'reservations\')">Saari bookings dekho</button></p></div>' +
+    '<div class="card"><h3>Account</h3>' +
+    '<div class="field"><label for="pfName">Full name</label><input id="pfName" value="' + escHtml(currentUser.name) + '"></div>' +
+    '<p><button class="btn" onclick="saveProfileName()">Naam save karo</button></p>' +
+    '<div class="field"><label for="pfCur">Current password</label><input id="pfCur" type="password" autocomplete="current-password"></div>' +
+    '<div class="field"><label for="pfNew">Naya password</label><input id="pfNew" type="password" autocomplete="new-password" placeholder="Kam se kam 8 characters, letter + number"></div>' +
+    '<div class="field"><label for="pfNew2">Naya password dobara</label><input id="pfNew2" type="password" autocomplete="new-password"></div>' +
+    '<p><button class="btn" onclick="changeProfilePass()">Password change karo</button></p></div>' +
+    '<div class="card"><h3>Settings</h3>' +
+    '<p class="sub" style="margin-top:0">Theme</p><div class="seg">' + segBtn("system", "System") + segBtn("light", "Light") + segBtn("dark", "Dark") + '</div>' +
+    '<div class="field" style="margin-top:14px"><label for="pfFrom">Default departure city (home search me pehle se chuna hoga)</label><select id="pfFrom"><option value="">Koi nahi</option>' + fromOpts + '</select></div>' +
+    '<p><button class="btn" onclick="saveProfileSettings()">Settings save karo</button></p></div>' +
+    '<div class="card"><h3>Danger zone</h3><p class="sub">Ye actions sirf tumhare account par lagenge, seed demo data par nahi.</p>' +
+    '<p><button class="btn" onclick="clearMyBookings()">Meri bookings clear karo</button> ' +
+    '<button class="btn" style="background:var(--danger)" onclick="deleteMyAccount()">Account delete karo</button></p></div>';
+}
+function saveProfileName(){
+  var v = document.getElementById("pfName").value.trim();
+  if(!v){ toast("Naam khaali nahi ho sakta."); return; }
+  var users = loadUsers();
+  var u = users.filter(function(x){ return x.email === currentUser.email; })[0];
+  if(u) u.name = v;
+  saveUsers(users);
+  currentUser.name = v; saveSession(currentUser);
+  updateAuthUI(); renderProfile();
+  toast("Naam update ho gaya.");
+}
+function changeProfilePass(){
+  var cur = document.getElementById("pfCur").value;
+  var nw = document.getElementById("pfNew").value;
+  var nw2 = document.getElementById("pfNew2").value;
+  var users = loadUsers();
+  var u = users.filter(function(x){ return x.email === currentUser.email; })[0];
+  if(!u || u.passHash !== demoHash(cur)){ toast("Current password galat hai."); return; }
+  if(nw.length < 8 || !/[A-Za-z]/.test(nw) || !/[0-9]/.test(nw)){ toast("Naya password kam se kam 8 characters ka ho, usme letter aur number dono hon."); return; }
+  if(nw !== nw2){ toast("Naya password dobara same nahi hai."); return; }
+  u.passHash = demoHash(nw); saveUsers(users);
+  document.getElementById("pfCur").value = ""; document.getElementById("pfNew").value = ""; document.getElementById("pfNew2").value = "";
+  toast("Password change ho gaya.");
+}
+function setProfileTheme(t){
+  var st = loadSettings(); st.theme = t; saveSettings(st); applyTheme(t); renderProfile();
+  toast("Theme save ho gaya.");
+}
+function saveProfileSettings(){
+  var st = loadSettings(); st.defaultFrom = document.getElementById("pfFrom").value; saveSettings(st);
+  fillQuick(); renderProfile();
+  toast("Settings save ho gayi.");
+}
+function clearMyBookings(){
+  if(!confirm("Apni saari bookings delete karni hain? Ye wapas nahi aayengi.")) return;
+  reservations = reservations.filter(function(r){ return r.userEmail !== currentUser.email; });
+  renderAll();
+  toast("Tumhari bookings clear ho gayi.");
+}
+function deleteMyAccount(){
+  if(!confirm("Account delete karna hai? Tumhara naam, login aur bookings sab hat jayenge.")) return;
+  saveUsers(loadUsers().filter(function(x){ return x.email !== currentUser.email; }));
+  reservations = reservations.filter(function(r){ return r.userEmail !== currentUser.email; });
+  currentUser = null; localStorage.removeItem("horizon_demo_session");
+  updateAuthUI(); renderAll(); showView("auth");
+  toast("Account delete ho gaya.");
+}
+applyTheme(loadSettings().theme || "system");
 currentUser = loadSession();
 seed();
 fillFlightSelect();
