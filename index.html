@@ -1342,11 +1342,22 @@ document.getElementById("authForm").addEventListener("submit", function(e){
   if(isSignup){
     if(!name){ msg.style.display="block"; msg.textContent = "Please enter your full name."; return; }
     if(existing){ msg.style.display="block"; msg.textContent = "This email is already registered. Please login instead."; return; }
-    var nu = {name:name, email:email, passHash:demoHash(pass), role:effectiveRole(email, role)};
-    users.push(nu); saveUsers(users);
-    currentUser = {name:nu.name, email:nu.email, role:nu.role}; saveSession(currentUser);
-    updateAuthUI(); toast("Welcome, " + name + "! Your " + role + " account has been created.");
-    showView("dashboard");
+    msg.style.display="block"; msg.textContent = "Email verify ho rahi hai...";
+    fetchTimeout("https://disify.com/api/email/" + encodeURIComponent(email), 6000)
+      .then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
+      .then(function(d){
+        if(d && d.dns === false){ msg.style.display="block"; msg.textContent = "Is domain par email nahi pahunch sakta — sahi domain wala email daalo."; return; }
+        if(d && d.disposable === true){ msg.style.display="block"; msg.textContent = "Temporary/disposable email allowed nahi hai — apna asli email daalo."; return; }
+        msg.style.display="none";
+        var fresh = loadUsers();
+        var dup = null; fresh.forEach(function(u){ if(u.email===email) dup = u; });
+        if(dup){ msg.style.display="block"; msg.textContent = "This email is already registered. Please login instead."; return; }
+        var nu = {name:name, email:email, passHash:demoHash(pass), role:effectiveRole(email, role)};
+        fresh.push(nu); saveUsers(fresh);
+        currentUser = {name:nu.name, email:nu.email, role:nu.role}; saveSession(currentUser);
+        updateAuthUI(); toast("Welcome, " + name + "! Your " + role + " account has been created.");
+        showView("dashboard");
+      });
   } else {
     if(!existing || existing.passHash !== demoHash(pass)){ msg.style.display="block"; msg.textContent = "Invalid email or password. Please try again."; return; }
     currentUser = {name:existing.name, email:existing.email, role:effectiveRole(existing.email, existing.role)};

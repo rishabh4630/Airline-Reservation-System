@@ -54,6 +54,22 @@ def _fetch_json(url, timeout=5, headers=None):
         return None
 
 
+def _email_deliverable(email):
+    """Disify check (keyless, no signup): True when the domain has DNS/MX and is
+    not a disposable address. Returns True on any API failure, so a dead
+    third-party service never blocks signup -- format validation still applies."""
+    data = _fetch_json(
+        "https://disify.com/api/email/" + urllib.parse.quote(email),
+        timeout=5,
+        headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
+    )
+    if not data:
+        return True
+    if data.get("dns") is False or data.get("disposable") is True:
+        return False
+    return True
+
+
 def _weather_label(code):
     if code is None:
         return "mausam uplabdh nahi"
@@ -909,6 +925,8 @@ def register():
             flash("Please enter a valid email address (e.g. name@example.com).")
         elif len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"[0-9]", password):
             flash("Password must be at least 8 characters and include both letters and numbers.")
+        elif not _email_deliverable(email):
+            flash("This email domain cannot receive mail, or it is a temporary/disposable address. Please use your real email.")
         elif get_db().execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
             flash("This email is already registered. Please login instead.")
             return redirect(url_for("login"))
