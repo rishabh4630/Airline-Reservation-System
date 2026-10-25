@@ -506,7 +506,7 @@ html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-eve
       <form id="authForm">
         <div class="field" id="authNameField"><label for="authName">Full name</label><input id="authName" placeholder="e.g. Aarav Sharma"></div>
         <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" required placeholder="you@example.com"></div>
-        <div class="field"><label for="authPass">Password</label><input id="authPass" type="password" required minlength="6" placeholder="At least 6 characters"></div>
+        <div class="field"><label for="authPass">Password</label><input id="authPass" type="password" required minlength="8" placeholder="At least 8 characters, letters + numbers"></div>
         <button class="btn amber" id="authSubmit" type="submit">Login</button>
       <p style="text-align:center;color:var(--faint);font-size:.85rem;line-height:1.5">Logging in with the owner email signs you in as admin automatically.</p>
       </form>
@@ -1335,7 +1335,8 @@ document.getElementById("authForm").addEventListener("submit", function(e){
   var email = document.getElementById("authEmail").value.trim().toLowerCase();
   var pass = document.getElementById("authPass").value;
   var msg = document.getElementById("authMsg");
-  if(pass.length < 6){ msg.style.display="block"; msg.textContent = "Password must be at least 6 characters."; return; }
+  if(isSignup && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ msg.style.display="block"; msg.textContent = "Sahi email daalo, jaise naam@example.com"; return; }
+  if(isSignup && (pass.length < 8 || !/[A-Za-z]/.test(pass) || !/[0-9]/.test(pass))){ msg.style.display="block"; msg.textContent = "Password kam se kam 8 characters ka ho, usme letter aur number dono hon."; return; }
   var users = loadUsers();
   var existing = null; users.forEach(function(u){ if(u.email===email) existing = u; });
   if(isSignup){
