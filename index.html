@@ -964,7 +964,7 @@ function showTicket(pnr, isNew){
   openModal('<h3>'+(isNew ? "Booking "+(r.status==="Confirmed"?"confirmed":"wait-listed")+" 🎉" : "Your e-ticket")+'</h3>'+
     '<p class="sub">PNR <b class="mono">'+r.pnr+'</b> — keep this code to view, print or cancel your booking anytime.</p>'+
     ticketHTML(r)+
-    '<div class="modal-actions"><button class="btn navy" onclick="downloadTicket(\''+r.pnr+'\')">⬇ Download ticket (printable)</button>'+
+    '<div class="modal-actions"><button class="btn navy" onclick="downloadTicket(\''+r.pnr+'\')">⬇ Download PDF</button>'+
     '<button class="btn amber" data-goto="reservations" onclick="closeModal()">Go to reservations</button>'+
     '<button class="btn ghost" onclick="closeModal()">Close</button></div>');
 }
@@ -993,8 +993,15 @@ function downloadDoc(filename, title, innerHTML){
 function downloadTicket(pnr){
   var r = findRes(pnr); if(!r) return;
   if(!ownsBooking(r)){ toast("You can only view your own bookings."); return; }
-  downloadDoc("Horizon-Ticket-"+r.pnr+".html", "E-Ticket "+r.pnr, ticketHTML(r));
-  toast("Ticket downloaded — open the file to print it.");
+  var el = document.querySelector("#modalBox .ticket");
+  function go(){ html2pdf().set({margin: 10, filename: "Horizon-Ticket-" + r.pnr + ".pdf", html2canvas: {scale: 2}, jsPDF: {unit: "mm", format: "a4", orientation: "portrait"}}).from(el).save(); toast("Ticket PDF downloaded."); }
+  if(!el){ downloadDoc("Horizon-Ticket-"+r.pnr+".html", "E-Ticket "+r.pnr, ticketHTML(r)); return; }
+  if(window.html2pdf){ go(); return; }
+  var s = document.createElement("script");
+  s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+  s.onload = go;
+  s.onerror = function(){ downloadDoc("Horizon-Ticket-"+r.pnr+".html", "E-Ticket "+r.pnr, ticketHTML(r)); };
+  document.head.appendChild(s);
 }
 function askCancel(pnr){
   var r = findRes(pnr); if(!r) return;
