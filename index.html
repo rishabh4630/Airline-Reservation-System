@@ -1231,9 +1231,11 @@ function loadRouteInfo(fromCode, toCode, date){
       .then(function(r){ return r.json(); }).then(function(d){ return (d && d.daily && d.daily.time && d.daily.time.length) ? d.daily : null; }).catch(function(){ return null; }) : Promise.resolve(null);
     var fxJob = fetchTimeout("https://api.frankfurter.app/latest?from=INR&to=USD,EUR,GBP", 6000)
       .then(function(r){ return r.json(); }).then(function(d){ return (d && d.rates) ? d.rates : null; }).catch(function(){ return null; });
-    return Promise.all([weatherJob, aqiJob, travelJob, guideJob, airportJob, weekJob, fxJob]).then(function(res){ return {a: a, b: b, res: res}; });
+    var holidayJob = date ? fetchTimeout("https://calendar-api-d7a8.onrender.com/v1/date/is-holiday?country=IN&date=" + date, 6000)
+      .then(function(r){ return r.json(); }).then(function(d){ var it = (d && d.data && d.data[0]) || {}; return it.is_holiday ? it.holidays : null; }).catch(function(){ return null; }) : Promise.resolve(null);
+    return Promise.all([weatherJob, aqiJob, travelJob, guideJob, airportJob, weekJob, fxJob, holidayJob]).then(function(res){ return {a: a, b: b, res: res}; });
   }).then(function(out){
-    var weather = out.res[0], aqi = out.res[1], travel = out.res[2], guide = out.res[3], airport = out.res[4], week = out.res[5], fx = out.res[6];
+    var weather = out.res[0], aqi = out.res[1], travel = out.res[2], guide = out.res[3], airport = out.res[4], week = out.res[5], fx = out.res[6], holidays = out.res[7];
     var parts = [];
     if(out.a && out.b) parts.push("Seedhi hawai doori: ~" + Math.round(haversineKm(out.a, out.b)).toLocaleString("en-IN") + " km");
     if(weather && weather.temperature_2m !== undefined) parts.push(esc(toCity) + " ka mausam: " + weather.temperature_2m + "°C, " + weatherLabel(weather.weather_code));
@@ -1256,6 +1258,10 @@ function loadRouteInfo(fromCode, toCode, date){
     if(fx && fx.USD && fx.EUR && fx.GBP){
       parts.push("Currency (approx, ECB rates): $1 ≈ ₹" + Math.round(1 / fx.USD).toLocaleString("en-IN") + " · €1 ≈ ₹" + Math.round(1 / fx.EUR).toLocaleString("en-IN") + " · £1 ≈ ₹" + Math.round(1 / fx.GBP).toLocaleString("en-IN"));
     }
+    if(holidays && holidays.length){
+      var names = holidays.map(function(h){ return h.type === "gazetted_holiday" ? h.name : h.name + " (restricted)"; }).join(", ");
+      parts.push("Travel date ko chhutti: " + names);
+    }
     var guideHtml = "";
     if(guide){
       var text = guide.extract;
@@ -1276,7 +1282,7 @@ function loadRouteInfo(fromCode, toCode, date){
       el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai (live service se data nahi mila).</p></div>';
     } else {
       var stripHtml = parts.length ? '<div class="card"><p><b>Route info:</b> ' + parts.join(" &middot; ") + "</p>" +
-        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide) / airport-data.com (airport) / Frankfurter (currency). Ye sirf jaankari hai — ' +
+        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide) / airport-data.com (airport) / Frankfurter (currency) / India Public Holidays (holiday). Ye sirf jaankari hai — ' +
         "booking ke liye neeche wali flights use karo.</p></div>" : "";
       el.innerHTML = stripHtml + guideHtml + weekHtml;
     }

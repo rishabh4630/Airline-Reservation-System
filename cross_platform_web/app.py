@@ -238,6 +238,27 @@ def _air_route_info(from_city, to_city, travel_date=None):
                 info["fx"] = (f"$1 ≈ ₹{round(1 / rates['USD']):,} · "
                               f"€1 ≈ ₹{round(1 / rates['EUR']):,} · "
                               f"£1 ≈ ₹{round(1 / rates['GBP']):,}")
+            # Travel-date holiday check (India Public Holidays API, keyless).
+            if travel_date:
+                try:
+                    date.fromisoformat(travel_date)
+                    data = _fetch_json(
+                        "https://calendar-api-d7a8.onrender.com/v1/date/is-holiday?country=IN&date=" + travel_date,
+                        timeout=5,
+                    )
+                    item = ((data or {}).get("data") or [{}])[0]
+                    if item.get("is_holiday"):
+                        names = []
+                        for h in item.get("holidays") or []:
+                            nm = h.get("name") or ""
+                            if not nm:
+                                continue
+                            names.append(nm if h.get("type") == "gazetted_holiday" else nm + " (restricted)")
+                        if names:
+                            info["holiday"] = ", ".join(names)
+                except (ValueError, KeyError, IndexError, TypeError):
+                    pass
+            # Destination guide (Wikipedia summary, keyless).
             data = _fetch_json(
                 "https://en.wikipedia.org/api/rest_v1/page/summary/" + urllib.parse.quote(to_city),
                 timeout=4,
@@ -1206,6 +1227,8 @@ def flights():
             parts.append(f"Travel date {html.escape(info['travel_weather'])}")
         if "sun" in info:
             parts.append(html.escape(info["sun"]))
+        if "holiday" in info:
+            parts.append(f"Travel date ko chhutti: {html.escape(info['holiday'])}")
         if "airport" in info:
             parts.append(f"{html.escape(_to)} airport: {html.escape(info['airport'])}")
         if "fx" in info:
@@ -1214,7 +1237,8 @@ def flights():
             _route_info = ('<div class="card"><p><b>Route info:</b> '
                            + " &middot; ".join(parts) + "</p>"
                            '<p style="color:var(--muted);font-size:.9rem">Live data: Open-Meteo (weather, air quality, forecast) / '
-                           "Wikipedia (destination guide) / airport-data.com (airport) / Frankfurter (currency). "
+                           "Wikipedia (destination guide) / airport-data.com (airport) / Frankfurter (currency) / "
+                           "India Public Holidays (holiday). "
                            "Ye sirf jaankari hai — booking ke liye neeche wali flights use karo.</p></div>")
         if "guide" in info:
             g = info["guide"]
