@@ -1152,7 +1152,7 @@ def ticket(pnr):
         flash("You can only view your own tickets.")
         return redirect(url_for("reservations"))
     body = f"""
-    <div class="card"><h2 style="text-align:center">HORIZON AIRWAYS — E-Ticket</h2>
+    <div class="card" id="ticket-card"><h2 style="text-align:center">HORIZON AIRWAYS — E-Ticket</h2>
     <table>
      <tr><th>PNR No.</th><td>{r['pnr']}</td><th>Status</th><td>{r['status']}</td></tr>
      <tr><th>Passenger</th><td>{r['first_name']} {r['last_name']}</td><th>Age / Gender</th><td>{r['age']} / {r['gender']}</td></tr>
@@ -1162,8 +1162,22 @@ def ticket(pnr):
      <tr><th>Special Request</th><td>{r['ssr'] or '-'}</td><th>Fare Amount</th><td>$ {r['fare']:.2f}</td></tr>
     </table>
     <p class="noprint"><button onclick="window.print()">Print Ticket</button>
+    <button onclick="downloadTicketPDF('{r['pnr']}')">Download PDF</button>
     <a class="btn light" href="{url_for('reservations')}">Back to Reservations</a></p></div>
-    """
+    """ + """
+<script>
+function downloadTicketPDF(pnr) {
+  var el = document.getElementById('ticket-card');
+  if (!el) { window.print(); return; }
+  function go() { html2pdf().set({margin: 10, filename: 'Horizon-Ticket-' + pnr + '.pdf', html2canvas: {scale: 2}, jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'}}).from(el).save(); }
+  if (window.html2pdf) { go(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+  s.onload = go;
+  s.onerror = function () { window.print(); };
+  document.head.appendChild(s);
+}
+</script>"""
     return page("Print Ticket", body)
 
 
