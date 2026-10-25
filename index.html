@@ -1414,7 +1414,7 @@ function renderProfile(){
   var box = document.getElementById("profileBox");
   if(!box) return;
   if(!currentUser){
-    box.innerHTML = '<div class="card"><h2>Profile</h2><p class="sub">Apna profile, bookings aur settings dekhne ke liye pehle login karo.</p><button class="btn" onclick="showView(\'auth\')">Login / Sign Up</button></div>';
+    box.innerHTML = '<div class="card"><h2>Profile</h2><p class="sub">Log in first to view your profile, bookings and settings.</p><button class="btn" onclick="showView(\'auth\')">Login / Sign Up</button></div>';
     return;
   }
   var mine = myReservations();
@@ -1423,7 +1423,7 @@ function renderProfile(){
   var latest = mine.slice(-5).reverse();
   var rows = latest.length ? latest.map(function(r){
     return '<tr><td data-l="PNR" class="mono"><b>' + escHtml(r.pnr) + '</b></td><td data-l="Flight">' + escHtml(r.flightNo) + '</td><td data-l="Date">' + escHtml(r.travelDate) + '</td><td data-l="Class">' + escHtml(r.cls) + '</td><td data-l="Status">' + escHtml(r.status) + '</td><td data-l="Fare">₹' + (+r.fare || 0).toLocaleString("en-IN") + '</td><td><button class="btn small" onclick="showTicket(\'' + escHtml(r.pnr) + '\')">Ticket</button></td></tr>';
-  }).join("") : '<tr><td colspan="7">Abhi koi booking nahi hai. Pehli booking karne ke liye Book a Ticket kholo.</td></tr>';
+  }).join("") : '<tr><td colspan="7">No bookings yet. Open Book a Ticket to make your first booking.</td></tr>';
   var cities = [];
   SECTORS.forEach(function(sc){ if(cities.indexOf(sc.from) < 0) cities.push(sc.from); if(cities.indexOf(sc.to) < 0) cities.push(sc.to); });
   var st = loadSettings();
@@ -1433,37 +1433,37 @@ function renderProfile(){
   box.innerHTML =
     '<div class="profile-hero"><div class="profile-avatar">' + escHtml(initialsOf(currentUser.name)) + '</div>' +
     '<div><h2>' + escHtml(currentUser.name) + '</h2><p>' + escHtml(currentUser.email) + '</p><span class="role-pill">' + escHtml(currentUser.role) + '</span></div>' +
-    '<div style="margin-left:auto;text-align:right"><p style="margin:0;color:#dbeeff;font-size:.85rem">Demo account<br>is browser me hi save hai</p></div></div>' +
+    '<div style="margin-left:auto;text-align:right"><p style="margin:0;color:#dbeeff;font-size:.85rem">Demo account<br>saved in this browser only</p></div></div>' +
     '<div class="pstat-grid"><div class="pstat"><b>' + mine.length + '</b><span>Total bookings</span></div>' +
     '<div class="pstat"><b>' + conf + '</b><span>Confirmed</span></div>' +
-    '<div class="pstat"><b>₹' + spent.toLocaleString("en-IN") + '</b><span>Total kharcha (cancelled chhod kar)</span></div></div>' +
-    '<div class="card" style="margin-top:16px"><h3>Meri haal ki bookings</h3><div class="tbl-wrap"><table><thead><tr><th>PNR</th><th>Flight</th><th>Date</th><th>Class</th><th>Status</th><th>Fare</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-    '<p><button class="btn" onclick="showView(\'reservations\')">Saari bookings dekho</button></p></div>' +
+    '<div class="pstat"><b>₹' + spent.toLocaleString("en-IN") + '</b><span>Total spent (excluding cancelled)</span></div></div>' +
+    '<div class="card" style="margin-top:16px"><h3>My recent bookings</h3><div class="tbl-wrap"><table><thead><tr><th>PNR</th><th>Flight</th><th>Date</th><th>Class</th><th>Status</th><th>Fare</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<p><button class="btn" onclick="showView(\'reservations\')">View all bookings</button></p></div>' +
     '<div class="card"><h3>Account</h3>' +
     '<div class="field"><label for="pfName">Full name</label><input id="pfName" value="' + escHtml(currentUser.name) + '"></div>' +
-    '<p><button class="btn" onclick="saveProfileName()">Naam save karo</button></p>' +
+    '<p><button class="btn" onclick="saveProfileName()">Save name</button></p>' +
     '<div class="field"><label for="pfCur">Current password</label><input id="pfCur" type="password" autocomplete="current-password"></div>' +
-    '<div class="field"><label for="pfNew">Naya password</label><input id="pfNew" type="password" autocomplete="new-password" placeholder="Kam se kam 8 characters, letter + number"></div>' +
-    '<div class="field"><label for="pfNew2">Naya password dobara</label><input id="pfNew2" type="password" autocomplete="new-password"></div>' +
-    '<p><button class="btn" onclick="changeProfilePass()">Password change karo</button></p></div>' +
+    '<div class="field"><label for="pfNew">New password</label><input id="pfNew" type="password" autocomplete="new-password" placeholder="At least 8 characters, letters + numbers"></div>' +
+    '<div class="field"><label for="pfNew2">New password again</label><input id="pfNew2" type="password" autocomplete="new-password"></div>' +
+    '<p><button class="btn" onclick="changeProfilePass()">Change password</button></p></div>' +
     '<div class="card"><h3>Settings</h3>' +
     '<p class="sub" style="margin-top:0">Theme</p><div class="seg">' + segBtn("system", "System") + segBtn("light", "Light") + segBtn("dark", "Dark") + '</div>' +
-    '<div class="field" style="margin-top:14px"><label for="pfFrom">Default departure city (home search me pehle se chuna hoga)</label><select id="pfFrom"><option value="">Koi nahi</option>' + fromOpts + '</select></div>' +
-    '<p><button class="btn" onclick="saveProfileSettings()">Settings save karo</button></p></div>' +
-    '<div class="card"><h3>Danger zone</h3><p class="sub">Ye actions sirf tumhare account par lagenge, seed demo data par nahi.</p>' +
-    '<p><button class="btn" onclick="clearMyBookings()">Meri bookings clear karo</button> ' +
-    '<button class="btn" style="background:var(--danger)" onclick="deleteMyAccount()">Account delete karo</button></p></div>';
+    '<div class="field" style="margin-top:14px"><label for="pfFrom">Default departure city (preselected in the home search)</label><select id="pfFrom"><option value="">None</option>' + fromOpts + '</select></div>' +
+    '<p><button class="btn" onclick="saveProfileSettings()">Save settings</button></p></div>' +
+    '<div class="card"><h3>Danger zone</h3><p class="sub">These actions affect only your account, not the seed demo data.</p>' +
+    '<p><button class="btn" onclick="clearMyBookings()">Clear my bookings</button> ' +
+    '<button class="btn" style="background:var(--danger)" onclick="deleteMyAccount()">Delete account</button></p></div>';
 }
 function saveProfileName(){
   var v = document.getElementById("pfName").value.trim();
-  if(!v){ toast("Naam khaali nahi ho sakta."); return; }
+  if(!v){ toast("Name cannot be empty."); return; }
   var users = loadUsers();
   var u = users.filter(function(x){ return x.email === currentUser.email; })[0];
   if(u) u.name = v;
   saveUsers(users);
   currentUser.name = v; saveSession(currentUser);
   updateAuthUI(); renderProfile();
-  toast("Naam update ho gaya.");
+  toast("Name updated.");
 }
 function changeProfilePass(){
   var cur = document.getElementById("pfCur").value;
@@ -1471,35 +1471,35 @@ function changeProfilePass(){
   var nw2 = document.getElementById("pfNew2").value;
   var users = loadUsers();
   var u = users.filter(function(x){ return x.email === currentUser.email; })[0];
-  if(!u || u.passHash !== demoHash(cur)){ toast("Current password galat hai."); return; }
-  if(nw.length < 8 || !/[A-Za-z]/.test(nw) || !/[0-9]/.test(nw)){ toast("Naya password kam se kam 8 characters ka ho, usme letter aur number dono hon."); return; }
-  if(nw !== nw2){ toast("Naya password dobara same nahi hai."); return; }
+  if(!u || u.passHash !== demoHash(cur)){ toast("Current password is incorrect."); return; }
+  if(nw.length < 8 || !/[A-Za-z]/.test(nw) || !/[0-9]/.test(nw)){ toast("New password must be at least 8 characters with both letters and numbers."); return; }
+  if(nw !== nw2){ toast("New passwords do not match."); return; }
   u.passHash = demoHash(nw); saveUsers(users);
   document.getElementById("pfCur").value = ""; document.getElementById("pfNew").value = ""; document.getElementById("pfNew2").value = "";
-  toast("Password change ho gaya.");
+  toast("Password changed.");
 }
 function setProfileTheme(t){
   var st = loadSettings(); st.theme = t; saveSettings(st); applyTheme(t); renderProfile();
-  toast("Theme save ho gaya.");
+  toast("Theme saved.");
 }
 function saveProfileSettings(){
   var st = loadSettings(); st.defaultFrom = document.getElementById("pfFrom").value; saveSettings(st);
   fillQuick(); renderProfile();
-  toast("Settings save ho gayi.");
+  toast("Settings saved.");
 }
 function clearMyBookings(){
-  if(!confirm("Apni saari bookings delete karni hain? Ye wapas nahi aayengi.")) return;
+  if(!confirm("Delete all your bookings? This cannot be undone.")) return;
   reservations = reservations.filter(function(r){ return r.userEmail !== currentUser.email; });
   renderAll();
-  toast("Tumhari bookings clear ho gayi.");
+  toast("Your bookings have been cleared.");
 }
 function deleteMyAccount(){
-  if(!confirm("Account delete karna hai? Tumhara naam, login aur bookings sab hat jayenge.")) return;
+  if(!confirm("Delete your account? Your name, login and bookings will all be removed.")) return;
   saveUsers(loadUsers().filter(function(x){ return x.email !== currentUser.email; }));
   reservations = reservations.filter(function(r){ return r.userEmail !== currentUser.email; });
   currentUser = null; localStorage.removeItem("horizon_demo_session");
   updateAuthUI(); renderAll(); showView("auth");
-  toast("Account delete ho gaya.");
+  toast("Account deleted.");
 }
 applyTheme(loadSettings().theme || "system");
 currentUser = loadSession();
