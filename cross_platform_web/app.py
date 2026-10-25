@@ -15,19 +15,190 @@ Run:
 Then open http://127.0.0.1:5000 in any browser.
 """
 
+import html
+import json
+import math
 import os
 import random
 import sqlite3
 import string
+import urllib.parse
+import urllib.request
 from datetime import date, datetime
+from functools import wraps
 
-from flask import Flask, flash, g, redirect, render_template_string, request, url_for
+from flask import Flask, flash, g, redirect, render_template_string, request, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "airline.db")
 
 app = Flask(__name__)
 app.secret_key = "horizon-airways-dev-key-change-me"
+
+
+# ---------------------------------------------------------------------------
+# Destination info (free, keyless APIs): Open-Meteo weather / air quality /
+# travel-date forecast, Wikipedia destination guide. Road distance is NOT
+# used here -- flights need straight-line air distance, computed locally
+# from coordinates (haversine). Any external failure only hides pieces of
+# the strip; flight results always still render.
+# ---------------------------------------------------------------------------
+def _fetch_json(url, timeout=5, headers=None):
+    req = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
+def _weather_label(code):
+    if code is None:
+        return "mausam uplabdh nahi"
+    code = int(code)
+    if code == 0:
+        return "Saaf aasmaan"
+    if code == 1:
+        return "Zyaada tar saaf"
+    if code == 2:
+        return "Halke baadal"
+    if code == 3:
+        return "Baadal"
+    if code in (45, 48):
+        return "Kohra"
+    if code in (51, 53, 55, 56, 57):
+        return "Halki boondabaandi"
+    if code in (61, 80):
+        return "Halki baarish"
+    if code in (63, 81):
+        return "Baarish"
+    if code in (65, 82, 66, 67):
+        return "Tez baarish"
+    if code in (71, 73, 75, 77, 85, 86):
+        return "Barf"
+    if code in (95, 96, 99):
+        return "Aandhi-toofan"
+    return "mausam uplabdh nahi"
+
+
+def _aqi_label(aqi):
+    try:
+        aqi = float(aqi)
+    except (TypeError, ValueError):
+        return ""
+    if aqi <= 50:
+        return "Good"
+    if aqi <= 100:
+        return "Moderate"
+    if aqi <= 150:
+        return "Unhealthy for Sensitive Groups"
+    if aqi <= 200:
+        return "Unhealthy"
+    if aqi <= 300:
+        return "Very Unhealthy"
+    return "Hazardous"
+
+
+def _resolve_coords(city):
+    data = _fetch_json(
+        "https://nominatim.openstreetmap.org/search?format=json&limit=1&q="
+        + urllib.parse.quote(city + ", India"),
+        headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
+    )
+    if data and isinstance(data, list) and data:
+        try:
+            return (float(data[0]["lat"]), float(data[0]["lon"]))
+        except (KeyError, TypeError, ValueError):
+            return None
+    return None
+
+
+def _haversine_km(a, b):
+    lat1, lon1 = math.radians(a[0]), math.radians(a[1])
+    lat2, lon2 = math.radians(b[0]), math.radians(b[1])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return 6371 * 2 * math.asin(math.sqrt(h))
+
+
+def _air_route_info(from_city, to_city, travel_date=None):
+    """Destination weather, air quality, travel-date forecast and guide.
+    Never raises; returns a dict that may be partial or empty."""
+    info = {}
+    try:
+        start = _resolve_coords(from_city)
+        dest = _resolve_coords(to_city)
+        if start and dest:
+            info["air_distance"] = f"~{round(_haversine_km(start, dest)):,} km"
+        if dest:
+            data = _fetch_json(
+                "https://api.open-meteo.com/v1/forecast"
+                f"?latitude={dest[0]}&longitude={dest[1]}"
+                "&current=temperature_2m,weather_code&timezone=Asia%2FKolkata"
+            )
+            current = (data or {}).get("current") or {}
+            if "temperature_2m" in current:
+                info["weather"] = (
+                    f"{current['temperature_2m']}°C, "
+                    f"{_weather_label(current.get('weather_code'))}"
+                )
+            data = _fetch_json(
+                "https://air-quality-api.open-meteo.com/v1/air-quality"
+                f"?latitude={dest[0]}&longitude={dest[1]}&current=us_aqi,pm2_5",
+                timeout=4,
+            )
+            current = (data or {}).get("current") or {}
+            if current.get("us_aqi") is not None:
+                label = _aqi_label(current["us_aqi"])
+                pm = current.get("pm2_5")
+                info["aqi"] = f"AQI {current['us_aqi']} ({label})" + (
+                    f", PM2.5 {pm} µg/m³" if pm is not None else "")
+            if travel_date:
+                try:
+                    d = date.fromisoformat(travel_date)
+                    if 0 <= (d - date.today()).days <= 16:
+                        data = _fetch_json(
+                            "https://api.open-meteo.com/v1/forecast"
+                            f"?latitude={dest[0]}&longitude={dest[1]}"
+                            "&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset"
+                            "&timezone=Asia%2FKolkata"
+                            f"&start_date={travel_date}&end_date={travel_date}",
+                            timeout=4,
+                        )
+                        daily = (data or {}).get("daily") or {}
+                        if (daily.get("time") or []):
+                            info["travel_weather"] = (
+                                f"{d.strftime('%d %b')} ko: "
+                                f"{daily['temperature_2m_max'][0]}°C / {daily['temperature_2m_min'][0]}°C, "
+                                f"{_weather_label(daily['weather_code'][0])}"
+                            )
+                            sr = (daily.get("sunrise") or [""])[0]
+                            ss = (daily.get("sunset") or [""])[0]
+                            if sr and ss:
+                                info["sun"] = f"Suryaoday {sr[11:16]}, Suryaast {ss[11:16]}"
+                except (ValueError, KeyError, IndexError, TypeError):
+                    pass
+            data = _fetch_json(
+                "https://en.wikipedia.org/api/rest_v1/page/summary/" + urllib.parse.quote(to_city),
+                timeout=4,
+                headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
+            )
+            if data and data.get("extract"):
+                text = data["extract"]
+                if len(text) > 300:
+                    text = text[:300].rsplit(" ", 1)[0] + "…"
+                thumb = (data.get("thumbnail") or {}).get("source", "")
+                page = ((data.get("content_urls") or {}).get("desktop") or {}).get("page", "")
+                info["guide"] = {"title": data.get("title") or to_city,
+                                 "text": text, "thumb": thumb, "url": page}
+    except Exception:
+        pass
+    return info
+
+# The owner account: logging in with this email is automatically an admin,
+# so there is no separate admin signup/login page.
+OWNER_EMAIL = "rishabhsingh4630@gmail.com"
 
 
 # --------------------------------------------------------------------------
@@ -107,8 +278,24 @@ def init_db(seed=True):
             tran_type TEXT NOT NULL,             -- Payment / Refund
             amount    REAL NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            name          TEXT NOT NULL,
+            email         TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            role          TEXT NOT NULL DEFAULT 'customer',  -- customer / admin
+            created_on    TEXT NOT NULL
+        );
         """
     )
+    # Migration for databases created before login/signup was added:
+    # old reservations rows have no owner, so the new column is nullable.
+    cols = [r[1] for r in db.execute("PRAGMA table_info(reservations)")]
+    if "user_id" not in cols:
+        db.execute("ALTER TABLE reservations ADD COLUMN user_id INTEGER REFERENCES users(id)")
+    ucols = [r[1] for r in db.execute("PRAGMA table_info(users)")]
+    if "role" not in ucols:
+        db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'")
     if seed and db.execute("SELECT COUNT(*) FROM sectors").fetchone()[0] == 0:
         db.executemany(
             "INSERT INTO sectors VALUES (?,?,?,?)",
@@ -141,6 +328,193 @@ def init_db(seed=True):
             "INSERT OR IGNORE INTO scheduled_flights (flight_no, flight_date) VALUES (?,?)",
             [("HZ101", today), ("HZ202", today), ("HZ303", today), ("HZ404", today)],
         )
+
+    # All-India expansion (user-supplied airport/route list, 2026-10-24):
+    # INSERT OR IGNORE so existing databases also gain the new routes
+    # without touching the original 4 flights, and demo fares are labelled
+    # as demo in the UI (these are NOT live airline fares/timings).
+    db.executemany(
+        "INSERT OR IGNORE INTO sectors VALUES (?,?,?,?)",
+        [
+                ("DEL-BOM", "Delhi", "Mumbai", "Delhi to Mumbai"),
+                ("DEL-LKO", "Delhi", "Lucknow", "Delhi to Lucknow"),
+                ("DEL-BLR", "Delhi", "Bengaluru", "Delhi to Bengaluru"),
+                ("DEL-HYD", "Delhi", "Hyderabad", "Delhi to Hyderabad"),
+                ("DEL-MAA", "Delhi", "Chennai", "Delhi to Chennai"),
+                ("DEL-CCU", "Delhi", "Kolkata", "Delhi to Kolkata"),
+                ("DEL-JAI", "Delhi", "Jaipur", "Delhi to Jaipur"),
+                ("DEL-PAT", "Delhi", "Patna", "Delhi to Patna"),
+                ("BOM-DEL", "Mumbai", "Delhi", "Mumbai to Delhi"),
+                ("BOM-LKO", "Mumbai", "Lucknow", "Mumbai to Lucknow"),
+                ("BOM-AMD", "Mumbai", "Ahmedabad", "Mumbai to Ahmedabad"),
+                ("BOM-GOA", "Mumbai", "Goa", "Mumbai to Goa"),
+                ("BOM-BLR", "Mumbai", "Bengaluru", "Mumbai to Bengaluru"),
+                ("BOM-COK", "Mumbai", "Kochi", "Mumbai to Kochi"),
+                ("BOM-CCU", "Mumbai", "Kolkata", "Mumbai to Kolkata"),
+                ("LKO-DEL", "Lucknow", "Delhi", "Lucknow to Delhi"),
+                ("LKO-BOM", "Lucknow", "Mumbai", "Lucknow to Mumbai"),
+                ("LKO-BLR", "Lucknow", "Bengaluru", "Lucknow to Bengaluru"),
+                ("LKO-HYD", "Lucknow", "Hyderabad", "Lucknow to Hyderabad"),
+                ("LKO-CCU", "Lucknow", "Kolkata", "Lucknow to Kolkata"),
+                ("LKO-AMD", "Lucknow", "Ahmedabad", "Lucknow to Ahmedabad"),
+                ("BLR-DEL", "Bengaluru", "Delhi", "Bengaluru to Delhi"),
+                ("BLR-BOM", "Bengaluru", "Mumbai", "Bengaluru to Mumbai"),
+                ("BLR-MAA", "Bengaluru", "Chennai", "Bengaluru to Chennai"),
+                ("BLR-HYD", "Bengaluru", "Hyderabad", "Bengaluru to Hyderabad"),
+                ("BLR-PNQ", "Bengaluru", "Pune", "Bengaluru to Pune"),
+                ("BLR-COK", "Bengaluru", "Kochi", "Bengaluru to Kochi"),
+                ("BLR-CCU", "Bengaluru", "Kolkata", "Bengaluru to Kolkata"),
+                ("MAA-DEL", "Chennai", "Delhi", "Chennai to Delhi"),
+                ("MAA-BOM", "Chennai", "Mumbai", "Chennai to Mumbai"),
+                ("MAA-BLR", "Chennai", "Bengaluru", "Chennai to Bengaluru"),
+                ("MAA-HYD", "Chennai", "Hyderabad", "Chennai to Hyderabad"),
+                ("MAA-CCU", "Chennai", "Kolkata", "Chennai to Kolkata"),
+                ("MAA-COK", "Chennai", "Kochi", "Chennai to Kochi"),
+                ("CCU-DEL", "Kolkata", "Delhi", "Kolkata to Delhi"),
+                ("CCU-BOM", "Kolkata", "Mumbai", "Kolkata to Mumbai"),
+                ("CCU-LKO", "Kolkata", "Lucknow", "Kolkata to Lucknow"),
+                ("CCU-BLR", "Kolkata", "Bengaluru", "Kolkata to Bengaluru"),
+                ("CCU-MAA", "Kolkata", "Chennai", "Kolkata to Chennai"),
+                ("CCU-GAU", "Kolkata", "Guwahati", "Kolkata to Guwahati"),
+                ("HYD-DEL", "Hyderabad", "Delhi", "Hyderabad to Delhi"),
+                ("JAI-DEL", "Jaipur", "Delhi", "Jaipur to Delhi"),
+                ("PAT-DEL", "Patna", "Delhi", "Patna to Delhi"),
+                ("AMD-BOM", "Ahmedabad", "Mumbai", "Ahmedabad to Mumbai"),
+                ("GOA-BOM", "Goa", "Mumbai", "Goa to Mumbai"),
+                ("COK-BOM", "Kochi", "Mumbai", "Kochi to Mumbai"),
+                ("BLR-LKO", "Bengaluru", "Lucknow", "Bengaluru to Lucknow"),
+                ("HYD-LKO", "Hyderabad", "Lucknow", "Hyderabad to Lucknow"),
+                ("AMD-LKO", "Ahmedabad", "Lucknow", "Ahmedabad to Lucknow"),
+                ("HYD-BLR", "Hyderabad", "Bengaluru", "Hyderabad to Bengaluru"),
+                ("PNQ-BLR", "Pune", "Bengaluru", "Pune to Bengaluru"),
+                ("COK-BLR", "Kochi", "Bengaluru", "Kochi to Bengaluru"),
+                ("BOM-MAA", "Mumbai", "Chennai", "Mumbai to Chennai"),
+                ("HYD-MAA", "Hyderabad", "Chennai", "Hyderabad to Chennai"),
+                ("COK-MAA", "Kochi", "Chennai", "Kochi to Chennai"),
+                ("GAU-CCU", "Guwahati", "Kolkata", "Guwahati to Kolkata"),
+                ("DEL-VNS", "Delhi", "Varanasi", "Delhi to Varanasi"),
+                ("VNS-DEL", "Varanasi", "Delhi", "Varanasi to Delhi"),
+                ("DEL-SXR", "Delhi", "Srinagar", "Delhi to Srinagar"),
+                ("SXR-DEL", "Srinagar", "Delhi", "Srinagar to Delhi"),
+                ("DEL-DED", "Delhi", "Dehradun", "Delhi to Dehradun"),
+                ("DED-DEL", "Dehradun", "Delhi", "Dehradun to Delhi"),
+                ("DEL-IXC", "Delhi", "Chandigarh", "Delhi to Chandigarh"),
+                ("IXC-DEL", "Chandigarh", "Delhi", "Chandigarh to Delhi"),
+                ("DEL-BBI", "Delhi", "Bhubaneswar", "Delhi to Bhubaneswar"),
+                ("BBI-DEL", "Bhubaneswar", "Delhi", "Bhubaneswar to Delhi"),
+                ("DEL-IDR", "Delhi", "Indore", "Delhi to Indore"),
+                ("IDR-DEL", "Indore", "Delhi", "Indore to Delhi"),
+                ("DEL-NAG", "Delhi", "Nagpur", "Delhi to Nagpur"),
+                ("NAG-DEL", "Nagpur", "Delhi", "Nagpur to Delhi"),
+                ("DEL-IXR", "Delhi", "Ranchi", "Delhi to Ranchi"),
+                ("IXR-DEL", "Ranchi", "Delhi", "Ranchi to Delhi"),
+                ("DEL-RPR", "Delhi", "Raipur", "Delhi to Raipur"),
+                ("RPR-DEL", "Raipur", "Delhi", "Raipur to Delhi"),
+                ("DEL-ATQ", "Delhi", "Amritsar", "Delhi to Amritsar"),
+                ("ATQ-DEL", "Amritsar", "Delhi", "Amritsar to Delhi"),
+                ("DEL-CJB", "Delhi", "Coimbatore", "Delhi to Coimbatore"),
+                ("CJB-DEL", "Coimbatore", "Delhi", "Coimbatore to Delhi"),
+                ("DEL-VTZ", "Delhi", "Visakhapatnam", "Delhi to Visakhapatnam"),
+                ("VTZ-DEL", "Visakhapatnam", "Delhi", "Visakhapatnam to Delhi"),
+                ("DEL-TIR", "Delhi", "Tirupati", "Delhi to Tirupati"),
+                ("TIR-DEL", "Tirupati", "Delhi", "Tirupati to Delhi"),
+                ("DEL-IXA", "Delhi", "Agartala", "Delhi to Agartala"),
+                ("IXA-DEL", "Agartala", "Delhi", "Agartala to Delhi"),
+                ("DEL-IXZ", "Delhi", "Port Blair", "Delhi to Port Blair"),
+                ("IXZ-DEL", "Port Blair", "Delhi", "Port Blair to Delhi"),
+        ],
+    )
+    db.executemany(
+        "INSERT OR IGNORE INTO flights VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [
+                ("HZ501", "DEL-BOM", "A320", "05:00", "06:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ502", "DEL-LKO", "B737", "06:35", "08:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ503", "DEL-BLR", "ATR72", "08:10", "10:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ504", "DEL-HYD", "A320", "09:45", "12:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ505", "DEL-MAA", "B737", "11:20", "14:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ506", "DEL-CCU", "ATR72", "12:55", "16:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ507", "DEL-JAI", "A320", "14:30", "16:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ508", "DEL-PAT", "B737", "16:05", "18:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ509", "BOM-DEL", "ATR72", "17:40", "20:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ510", "BOM-LKO", "A320", "19:15", "22:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ511", "BOM-AMD", "B737", "05:50", "09:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ512", "BOM-GOA", "ATR72", "07:25", "11:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ513", "BOM-BLR", "A320", "09:00", "10:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ514", "BOM-COK", "B737", "10:35", "12:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ515", "BOM-CCU", "ATR72", "12:10", "14:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ516", "LKO-DEL", "A320", "13:45", "16:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ517", "LKO-BOM", "B737", "15:20", "18:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ518", "LKO-BLR", "ATR72", "16:55", "20:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ519", "LKO-HYD", "A320", "18:30", "20:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ520", "LKO-CCU", "B737", "05:05", "07:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ521", "LKO-AMD", "ATR72", "06:40", "09:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ522", "BLR-DEL", "A320", "08:15", "11:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ523", "BLR-BOM", "B737", "09:50", "13:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ524", "BLR-MAA", "ATR72", "11:25", "15:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ525", "BLR-HYD", "A320", "13:00", "14:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ526", "BLR-PNQ", "B737", "14:35", "16:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ527", "BLR-COK", "ATR72", "16:10", "18:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ528", "BLR-CCU", "A320", "17:45", "20:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ529", "MAA-DEL", "B737", "19:20", "22:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ530", "MAA-BOM", "ATR72", "05:55", "09:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ531", "MAA-BLR", "A320", "07:30", "09:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ532", "MAA-HYD", "B737", "09:05", "11:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ533", "MAA-CCU", "ATR72", "10:40", "13:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ534", "MAA-COK", "A320", "12:15", "15:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ535", "CCU-DEL", "B737", "13:50", "17:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ536", "CCU-BOM", "ATR72", "15:25", "19:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ537", "CCU-LKO", "A320", "17:00", "18:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ538", "CCU-BLR", "B737", "18:35", "20:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ539", "CCU-MAA", "ATR72", "05:10", "07:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ540", "CCU-GAU", "A320", "06:45", "09:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ541", "HYD-DEL", "B737", "08:20", "11:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ542", "JAI-DEL", "ATR72", "09:55", "13:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ543", "PAT-DEL", "A320", "11:30", "13:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ544", "AMD-BOM", "B737", "13:05", "15:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ545", "GOA-BOM", "ATR72", "14:40", "17:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ546", "COK-BOM", "A320", "16:15", "19:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ547", "BLR-LKO", "B737", "17:50", "21:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ548", "HYD-LKO", "ATR72", "19:25", "23:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ549", "AMD-LKO", "A320", "06:00", "07:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ550", "HYD-BLR", "B737", "07:35", "09:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ551", "PNQ-BLR", "ATR72", "09:10", "11:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ552", "COK-BLR", "A320", "10:45", "13:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ553", "BOM-MAA", "B737", "12:20", "15:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ554", "HYD-MAA", "ATR72", "13:55", "17:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ555", "COK-MAA", "A320", "15:30", "17:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ556", "GAU-CCU", "B737", "17:05", "19:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ557", "DEL-VNS", "ATR72", "18:40", "21:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ558", "VNS-DEL", "A320", "05:15", "08:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ559", "DEL-SXR", "B737", "06:50", "10:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ560", "SXR-DEL", "ATR72", "08:25", "12:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ561", "DEL-DED", "A320", "10:00", "11:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ562", "DED-DEL", "B737", "11:35", "13:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ563", "DEL-IXC", "ATR72", "13:10", "15:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ564", "IXC-DEL", "A320", "14:45", "17:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ565", "DEL-BBI", "B737", "16:20", "19:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ566", "BBI-DEL", "ATR72", "17:55", "21:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ567", "DEL-IDR", "A320", "19:30", "21:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ568", "IDR-DEL", "B737", "06:05", "08:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ569", "DEL-NAG", "ATR72", "07:40", "10:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ570", "NAG-DEL", "A320", "09:15", "12:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ571", "DEL-IXR", "B737", "10:50", "14:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ572", "IXR-DEL", "ATR72", "12:25", "16:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ573", "DEL-RPR", "A320", "14:00", "15:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ574", "RPR-DEL", "B737", "15:35", "17:45", "Tuesday", "Friday", 0, 6100, 3400),
+                ("HZ575", "DEL-ATQ", "ATR72", "17:10", "19:40", "Wednesday", "Saturday", 0, 0, 4200),
+                ("HZ576", "ATQ-DEL", "A320", "18:45", "21:35", "Sunday", "Wednesday", 13500, 9400, 5200),
+                ("HZ577", "DEL-CJB", "B737", "05:20", "08:35", "Monday", "Thursday", 0, 11500, 6400),
+                ("HZ578", "CJB-DEL", "ATR72", "06:55", "10:30", "Tuesday", "Friday", 0, 0, 7800),
+                ("HZ579", "DEL-VTZ", "A320", "08:30", "10:20", "Wednesday", "Saturday", 7300, 5000, 2800),
+                ("HZ580", "VTZ-DEL", "B737", "10:05", "12:15", "Sunday", "Wednesday", 0, 6100, 3400),
+                ("HZ581", "DEL-TIR", "ATR72", "11:40", "14:10", "Monday", "Thursday", 0, 0, 4200),
+                ("HZ582", "TIR-DEL", "A320", "13:15", "16:05", "Tuesday", "Friday", 13500, 9400, 5200),
+                ("HZ583", "DEL-IXA", "B737", "14:50", "18:05", "Wednesday", "Saturday", 0, 11500, 6400),
+                ("HZ584", "IXA-DEL", "ATR72", "16:25", "20:00", "Sunday", "Wednesday", 0, 0, 7800),
+                ("HZ585", "DEL-IXZ", "A320", "18:00", "19:50", "Monday", "Thursday", 7300, 5000, 2800),
+                ("HZ586", "IXZ-DEL", "B737", "19:35", "21:45", "Tuesday", "Friday", 0, 6100, 3400),
+        ],
+    )
     db.commit()
     db.close()
 
@@ -198,6 +572,62 @@ def new_pnr(db):
 
 
 # --------------------------------------------------------------------------
+# Login / Signup (Flask session; passwords are stored only as hashes,
+# never in plain text - Werkzeug's generate_password_hash / check_password_hash)
+# --------------------------------------------------------------------------
+def current_user():
+    if "user_id" not in session:
+        return None
+    return get_db().execute("SELECT id, name, email, role FROM users WHERE id=?", (session["user_id"],)).fetchone()
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def admin_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please login as admin first.")
+            return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can open this page.")
+            return redirect(url_for("home"))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def owns_booking(row):
+    # Admins can access any booking; customers only their own.
+    # Bookings made before roles existed have user_id NULL and are
+    # treated as admin-visible only, so a customer cannot claim them.
+    return session.get("user_role") == "admin" or (
+        row["user_id"] is not None and row["user_id"] == session.get("user_id")
+    )
+
+
+def effective_role(user):
+    return "admin" if user["email"].lower() == OWNER_EMAIL else user["role"]
+
+
+def start_session(user):
+    session["user_id"] = user["id"]
+    session["user_name"] = user["name"]
+    session["user_role"] = effective_role(user)
+    if session["user_role"] == "admin" and user["role"] != "admin":
+        db = get_db()
+        db.execute("UPDATE users SET role='admin' WHERE id=?", (user["id"],))
+        db.commit()
+
+
+# --------------------------------------------------------------------------
 # Templates (single-file app: layout + pages)
 # --------------------------------------------------------------------------
 LAYOUT = """
@@ -205,36 +635,145 @@ LAYOUT = """
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Horizon Airways - {{ title }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
- body{font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;margin:0;background:#f4f6fb;color:#17233b}
- header{background:#0b3c6c;color:#fff;padding:16px 24px}
- header h1{margin:0;font-size:22px} header p{margin:2px 0 0;opacity:.85;font-size:13px}
- nav{background:#12508c;padding:8px 24px} nav a{color:#fff;text-decoration:none;margin-right:16px;font-size:14px}
- nav a:hover{text-decoration:underline}
- main{max-width:1020px;margin:24px auto;padding:0 16px}
- .card{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:18px}
- table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid #e5e9f0;text-align:left;font-size:14px}
- input,select{padding:8px;border:1px solid #c6cfdd;border-radius:6px;margin:4px 8px 12px 0}
- button,.btn{background:#0b3c6c;color:#fff;border:0;padding:9px 16px;border-radius:6px;cursor:pointer;text-decoration:none;font-size:14px}
- .btn.light{background:#e8eef6;color:#0b3c6c} .danger{background:#b3261e}
- label{font-size:13px;font-weight:600;display:block}
- .flash{background:#e6f4ea;border:1px solid #34a853;padding:10px 14px;border-radius:8px;margin-bottom:14px}
- .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
- .stat{font-size:28px;font-weight:700;color:#0b3c6c}
- @media print{header,nav,.noprint{display:none}}
-</style></head><body>
-<header><h1>✈ Horizon Airways</h1><p>Airline Reservation System — Cross-Platform Web Version (Windows · macOS · Linux)</p></header>
-<nav>
+ /* Same look as the GitHub Pages demo: warm off-white background, navy
+    top bar, amber brand mark, teal buttons, soft shadows, rounded cards. */
+ :root{--bg:#f4f8fd;--surface:#ffffff;--surface2:#eaf5ff;--ink:#13273f;--muted:#5d6f84;--faint:#8494a7;
+  --navy:#063b78;--navy2:#0b5fa5;--accent:#0878d1;--accent-soft:#eaf5ff;--amber:#f59e0b;
+  --danger:#b42318;--danger-soft:#fdecea;--ok:#067647;--ok-soft:#e6f4ea;
+  --line:#dbe7f3;--line2:#dbe2ea;--shadow:0 10px 30px rgba(6,59,120,.10);--radius:16px}
+ @media (prefers-color-scheme:dark){
+  :root{--bg:#091423;--surface:#101f33;--surface2:#16293f;--ink:#edf3f9;--muted:#a4b6c9;--faint:#75899f;
+   --navy:#041a33;--navy2:#0a3a6b;--accent:#4aa8ec;--accent-soft:#0d2a4a;--amber:#f0a13c;
+   --danger:#ff8a7a;--danger-soft:#3d1a16;--ok:#5fd68f;--ok-soft:#14301f;
+   --line:#2f4566;--line2:#2f4566;--shadow:0 10px 30px rgba(0,0,0,.35)}}
+ *{box-sizing:border-box}
+ body{font-family:"Archivo",system-ui,-apple-system,'Segoe UI',Arial,sans-serif;margin:0;background:transparent;color:var(--ink);-webkit-font-smoothing:antialiased}
+ a{color:var(--accent)}
+ header{position:sticky;top:0;z-index:40;background:var(--navy);color:#fff;box-shadow:0 4px 18px rgba(9,20,35,.25)}
+ .topbar{max-width:1180px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+ .brand{display:flex;align-items:center;gap:11px;margin-right:auto;text-decoration:none;color:#fff}
+ .brand-mark{width:38px;height:38px;border-radius:10px;background:#0878d1;color:#fff;display:grid;place-items:center;font-weight:900;font-size:1.25rem}
+ .brand b{font-size:1.12rem;display:block;line-height:1.1}
+ .brand span{font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:#bcd2e8;font-weight:600}
+ nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+ nav a{color:#d7e5f2;text-decoration:none;padding:8px 13px;border-radius:999px;font-weight:600;font-size:.9rem}
+ nav a:hover{background:rgba(255,255,255,.10);color:#fff}
+ nav a.cta{background:#0878d1;color:#fff}
+ nav .hello{color:#c9dcee;font-size:.9rem;font-weight:600}
+ main{max-width:1180px;margin:0 auto;padding:26px 18px 64px}
+ .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:18px}
+ .hero{background:var(--navy);color:#fff;border-radius:22px;padding:30px;margin-bottom:22px;box-shadow:var(--shadow)}
+ .hero h1{font-size:clamp(1.9rem,4vw,2.9rem);line-height:1.04;margin:10px 0 12px;font-weight:900}
+ .hero p{color:#c9dcee;line-height:1.6;margin:0 0 20px;max-width:46ch}
+ .hero-tag{display:inline-block;background:rgba(245,158,11,.18);color:#fbbf24;border:1px solid rgba(245,158,11,.45);padding:5px 11px;border-radius:999px;font-size:.74rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+ table{width:100%;border-collapse:collapse} th,td{padding:10px 8px;border-bottom:1px solid var(--line2);text-align:left;font-size:14px}
+ th{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+ input,select{font-family:inherit;font-size:1rem;color:var(--ink);background:var(--surface);padding:10px;border:1px solid var(--line2);border-radius:9px;margin:4px 8px 12px 0}
+ button,.btn{font-family:inherit;border:0;border-radius:11px;padding:12px 20px;font-weight:800;font-size:.95rem;background:var(--accent);color:#fff;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+ button:hover,.btn:hover{filter:brightness(1.07)}
+ .btn.light,.btn.amber{background:#f59e0b;color:#12263f}
+ .btn.ghost{background:transparent;border:1.5px solid var(--line2);color:var(--ink)}
+ .danger{background:var(--danger)}
+ label{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:block}
+ .flash{background:var(--ok-soft);border:1px solid var(--ok);padding:12px 14px;border-radius:11px;margin-bottom:14px}
+ .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+ .grid .card{padding:16px 16px 13px}
+ .stat{font-size:1.65rem;font-weight:900;line-height:1;color:var(--accent)}
+ /* Premium polish: soft entrance, hover lift, smooth buttons, focus rings */
+ @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+ main>*{animation:rise .45s ease both}
+ main>*:nth-child(2){animation-delay:.05s} main>*:nth-child(3){animation-delay:.1s}
+ .card{transition:transform .2s ease,box-shadow .2s ease}
+ .card:hover{transform:translateY(-2px);box-shadow:0 16px 34px rgba(15,46,77,.16)}
+ .hero{background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 55%,#0878d1 100%);position:relative;overflow:hidden}
+ .hero:after{content:"✈";position:absolute;right:18px;bottom:-24px;font-size:9rem;opacity:.08;transform:rotate(-18deg)}
+ button,.btn{transition:transform .15s ease,filter .15s ease,box-shadow .15s ease;box-shadow:0 4px 14px rgba(8,120,209,.25)}
+ button:hover,.btn:hover{transform:translateY(-1px)}
+ button:active,.btn:active{transform:translateY(0) scale(.98)}
+ input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+ tr{transition:background .15s ease} tbody tr:hover{background:var(--surface2)}
+ nav a{transition:background .15s ease,color .15s ease}
+ .brand-mark{transition:transform .25s ease} .brand:hover .brand-mark{transform:rotate(-12deg) scale(1.06)}
+ /* Premium auth card */
+ .auth-card{max-width:460px;margin:28px auto;padding:30px 30px 24px;border-radius:22px;box-shadow:0 20px 44px rgba(15,46,77,.16);position:relative;overflow:hidden}
+ .auth-card:before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,var(--navy),var(--accent),#4aa8ec)}
+ .auth-badge{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--navy);font-weight:800;font-size:.82rem;padding:7px 12px;border-radius:999px;margin-bottom:14px}
+ .auth-card h2{font-size:1.7rem;margin:0 0 6px}
+ .auth-sub{color:var(--muted);margin:0 0 20px;line-height:1.55}
+ .auth-card label{font-weight:600}
+ .auth-card input{padding:13px 14px;border-radius:12px;font-size:1rem}
+ .auth-card button{width:100%;padding:13px;margin-top:6px;font-size:1.02rem;border-radius:12px}
+ .auth-switch{text-align:center;color:var(--muted);margin-top:16px}
+ .auth-note{text-align:center;color:var(--faint);font-size:.85rem;margin-top:8px;line-height:1.5}
+ @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+ .search-card{padding:24px}
+ .search-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;align-items:end}
+ .search-form input,.search-form select{width:100%;margin:4px 0 0}
+ .route-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+ .route-card h3{margin:0 0 4px} .route-card .from-fare{font-size:1.4rem;font-weight:900;color:var(--accent)}
+ .trust-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+ .faq details{border-bottom:1px solid var(--line2);padding:10px 0} .faq summary{font-weight:700;cursor:pointer}
+ @media print{header,.noprint{display:none}}
+
+ /* Edge system: one consistent corner language everywhere */
+ :root{--radius:20px}
+ body{overflow-x:hidden}
+ .card{border-radius:20px}
+ .hero{border-radius:24px}
+ button,.btn{border-radius:12px}
+ nav a{border-radius:999px}
+ input,select,textarea{border-radius:12px}
+ .brand-mark{border-radius:12px}
+ .flash{border-radius:12px}
+ .auth-card{border-radius:20px}
+ .search-card{border-radius:20px}
+ @media (max-width:600px){ main{padding-left:14px;padding-right:14px} }
+html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}.scenery svg{width:100%;height:100%;display:block}.cloud1{animation:drift1 75s linear infinite}.cloud2{animation:drift2 100s linear infinite}.cloud3{animation:drift3 85s linear infinite}.cloud4{animation:drift4 115s linear infinite}@keyframes drift1{from{transform:translate(-420px,120px)}to{transform:translate(2120px,120px)}}@keyframes drift2{from{transform:translate(-380px,240px)}to{transform:translate(2120px,240px)}}@keyframes drift3{from{transform:translate(-500px,70px) scale(.85)}to{transform:translate(2120px,70px) scale(.85)}}@keyframes drift4{from{transform:translate(-350px,320px) scale(1.15)}to{transform:translate(2120px,320px) scale(1.15)}}.plane-fly{animation:fly 32s linear infinite}@keyframes fly{0%{transform:translate(-340px,520px) rotate(-3deg)}45%{transform:translate(900px,360px) rotate(-1deg)}100%{transform:translate(2260px,500px) rotate(-3deg)}}.route-dash{animation:dashmove 3s linear infinite}@keyframes dashmove{to{stroke-dashoffset:-52}}.bp-float{animation:bpf 6s ease-in-out infinite alternate}@keyframes bpf{from{transform:translateY(0)}to{transform:translateY(-12px)}}@media (prefers-color-scheme:dark){.scenery{opacity:.35;filter:saturate(.85) brightness(.8)}}@media (prefers-reduced-motion:reduce){.cloud1,.cloud2,.cloud3,.cloud4,.plane-fly,.route-dash,.bp-float{animation:none}}.video-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}.video-bg video{width:100%;height:100%;object-fit:cover;display:block}.video-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,59,120,.38),rgba(6,59,120,.12) 45%,rgba(234,245,255,.20))}@media (prefers-reduced-motion:reduce){.video-bg{display:none}}.card{background:color-mix(in srgb, var(--surface) 94%, transparent)}</style></head><body>
+<div class="scenery" aria-hidden="true"><svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+<defs><linearGradient id="skys" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fb8e8"/><stop offset=".55" stop-color="#c8e4f7"/><stop offset="1" stop-color="#eaf5ff"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#ffe27a" stop-opacity=".9"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient></defs>
+<rect width="1920" height="1080" fill="url(#skys)"/>
+<circle cx="1650" cy="150" r="150" fill="url(#glow)"/><circle cx="1650" cy="150" r="88" fill="#ffd23c"/>
+<g class="cloud cloud1"><ellipse cx="0" cy="0" rx="90" ry="42" fill="#fff"/><ellipse cx="70" cy="-18" rx="70" ry="48" fill="#fff"/><ellipse cx="140" cy="0" rx="80" ry="38" fill="#fff"/></g>
+<g class="cloud cloud2"><ellipse cx="0" cy="0" rx="70" ry="32" fill="#fff" opacity=".95"/><ellipse cx="55" cy="-14" rx="55" ry="38" fill="#fff" opacity=".95"/><ellipse cx="110" cy="0" rx="62" ry="30" fill="#fff" opacity=".95"/></g>
+<g class="cloud cloud3"><ellipse cx="0" cy="0" rx="110" ry="46" fill="#fff" opacity=".9"/><ellipse cx="85" cy="-20" rx="80" ry="52" fill="#fff" opacity=".9"/><ellipse cx="170" cy="0" rx="95" ry="42" fill="#fff" opacity=".9"/></g>
+<g class="cloud cloud4"><ellipse cx="0" cy="0" rx="60" ry="28" fill="#fff" opacity=".95"/><ellipse cx="48" cy="-12" rx="48" ry="32" fill="#fff" opacity=".95"/><ellipse cx="95" cy="0" rx="55" ry="26" fill="#fff" opacity=".95"/></g>
+<path d="M 240,860 Q 960,420 1680,860" fill="none" stroke="#063B78" stroke-width="3" stroke-dasharray="14 12" opacity=".45" class="route-dash"/>
+<circle cx="240" cy="860" r="11" fill="#0878D1"/><circle cx="1680" cy="860" r="11" fill="#0878D1"/>
+<text x="240" y="905" text-anchor="middle" font-family="Archivo, Arial, sans-serif" font-size="30" font-weight="bold" fill="#063B78">DEL</text>
+<text x="1680" y="905" text-anchor="middle" font-family="Archivo, Arial, sans-serif" font-size="30" font-weight="bold" fill="#063B78">BLR</text>
+<text x="960" y="435" text-anchor="middle" font-family="Archivo, Arial, sans-serif" font-size="26" fill="#063B78" opacity=".75">Horizon Airways · Non-stop</text>
+<g class="plane-fly"><line x1="-280" y1="12" x2="-25" y2="12" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".45"/><path d="M0,0 L78,-10 L104,0 L78,10 Z M28,-6 L48,-42 L66,-6 Z M-8,8 L-28,-16 L-2,8 Z" fill="#0a2d50"/></g>
+<polygon points="0,980 140,920 300,965 480,915 660,970 840,925 1020,970 1200,920 1380,968 1560,922 1740,968 1920,930 1920,1080 0,1080" fill="#78aacd" opacity=".85"/>
+<rect x="0" y="1000" width="1920" height="80" fill="#2d78a5"/>
+<rect x="60" y="930" width="70" height="70" fill="#145a8c"/><rect x="220" y="950" width="55" height="50" fill="#145a8c"/><rect x="420" y="925" width="80" height="75" fill="#145a8c"/><rect x="700" y="945" width="60" height="55" fill="#145a8c"/><rect x="980" y="928" width="75" height="72" fill="#145a8c"/><rect x="1240" y="950" width="55" height="50" fill="#145a8c"/><rect x="1500" y="930" width="70" height="70" fill="#145a8c"/><rect x="1760" y="948" width="60" height="52" fill="#145a8c"/>
+<g class="bp-float"><rect x="1320" y="740" width="500" height="230" rx="20" fill="#fff" opacity=".94" stroke="#dbe7f3"/><line x1="1640" y1="760" x2="1640" y2="950" stroke="#dbe7f3" stroke-width="2" stroke-dasharray="6 6"/><text x="1348" y="782" font-family="Archivo, Arial, sans-serif" font-size="22" font-weight="bold" fill="#063B78">HORIZON AIRWAYS</text><text x="1348" y="810" font-family="Archivo, Arial, sans-serif" font-size="16" letter-spacing="3" fill="#0878D1">BOARDING PASS</text><text x="1348" y="868" font-family="Archivo, Arial, sans-serif" font-size="46" font-weight="bold" fill="#063B78">LKO &#8594; BLR</text><text x="1348" y="905" font-family="Archivo, Arial, sans-serif" font-size="21" fill="#33475e">Flight HZ518 · Seat 12A · Economy</text><text x="1348" y="938" font-family="Archivo, Arial, sans-serif" font-size="21" fill="#33475e">16:55 &#8212; 20:30</text><rect x="1665" y="800" width="6" height="110" fill="#0a2d50"/><rect x="1680" y="800" width="3" height="110" fill="#0a2d50"/><rect x="1692" y="800" width="10" height="110" fill="#0a2d50"/><rect x="1712" y="800" width="4" height="110" fill="#0a2d50"/><rect x="1726" y="800" width="8" height="110" fill="#0a2d50"/><rect x="1744" y="800" width="3" height="110" fill="#0a2d50"/><rect x="1757" y="800" width="9" height="110" fill="#0a2d50"/></g>
+</svg></div>
+<div class="video-bg" aria-hidden="true"><video autoplay muted loop playsinline preload="auto"><source src="https://videos.pexels.com/video-files/13879887/13879887-uhd_3840_2160_60fps.mp4" type="video/mp4"><source src="https://videos.pexels.com/video-files/13879887/13879887-hd_1920_1080_60fps.mp4" type="video/mp4"></video></div>
+
+<header><div class="topbar">
+ <a class="brand" href="{{ url_for('home') }}"><span class="brand-mark">✈</span><span><b>Horizon Airways</b><span>Airline Reservation System</span></span></a>
+ <nav>
  <a href="{{ url_for('home') }}">Main Menu</a>
  <a href="{{ url_for('reservations') }}">Reservations</a>
- <a href="{{ url_for('new_reservation') }}">New Reservation</a>
+ <a class="cta" href="{{ url_for('new_reservation') }}">New Reservation</a>
  <a href="{{ url_for('cancel') }}">Cancel Reservation</a>
  <a href="{{ url_for('flights') }}">Flights</a>
+ <a href="{{ url_for('flight_status') }}">Flight Status</a>
  <a href="{{ url_for('schedule') }}">Schedule Flights</a>
  <a href="{{ url_for('sectors') }}">Sectors</a>
  <a href="{{ url_for('aircraft') }}">Aircraft</a>
  <a href="{{ url_for('reports') }}">Reports</a>
-</nav>
+ {% if session.get('user_id') %}
+  <span class="hello">Hello, {{ session.get('user_name') }} ({{ session.get('user_role') }})</span>
+  <a href="{{ url_for('logout') }}">Logout</a>
+ {% else %}
+  <a href="{{ url_for('login') }}">Login</a>
+  <a href="{{ url_for('register') }}">Sign Up</a>
+ {% endif %}
+ </nav>
+</div></header>
 <main>
 {% with messages = get_flashed_messages() %}{% if messages %}
   {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}{% endwith %}
@@ -258,6 +797,75 @@ def table_html(rows, cols):
 
 
 # --------------------------------------------------------------------------
+# Routes - Sign Up / Login / Logout
+# --------------------------------------------------------------------------
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form["name"].strip()
+        email = request.form["email"].strip().lower()
+        password = request.form["password"]
+        if len(password) < 6:
+            flash("Password must be at least 6 characters.")
+        elif get_db().execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
+            flash("This email is already registered. Please login instead.")
+            return redirect(url_for("login"))
+        else:
+            db = get_db()
+            cur = db.execute(
+                "INSERT INTO users (name, email, password_hash, role, created_on) VALUES (?,?,?,?,?)",
+                (name, email, generate_password_hash(password),
+                 "admin" if email == OWNER_EMAIL else "customer", date.today().isoformat()),
+            )
+            db.commit()
+            session["user_id"] = cur.lastrowid
+            session["user_name"] = name
+            session["user_role"] = "admin" if email == OWNER_EMAIL else "customer"
+            flash(f"Welcome, {name}! Your account has been created.")
+            return redirect(url_for("home"))
+    body = """
+    <div class="card auth-card"><div class="auth-badge">✈ Horizon Airways</div><h2>Create your account</h2>
+    <p class="auth-sub">Book flights, view your tickets and manage your reservations.</p><form method="post">
+    <label>Full Name<input name="name" required placeholder="e.g. Aarav Sharma"></label>
+    <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
+    <label>Password<input name="password" type="password" minlength="6" required placeholder="At least 6 characters"></label>
+    <button>Create Account</button></form>
+    <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
+    """
+    return page("Sign Up", body)
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form["email"].strip().lower()
+        user = get_db().execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if user and check_password_hash(user["password_hash"], request.form["password"]):
+            start_session(user)
+            flash(f"Welcome back, {user['name']}!")
+            return redirect(request.args.get("next") or url_for("home"))
+        else:
+            flash("Invalid email or password. Please try again.")
+    body = """
+    <div class="card auth-card"><div class="auth-badge">✈ Horizon Airways</div><h2>Welcome back</h2>
+    <p class="auth-sub">Login to book flights and view your reservations.</p><form method="post">
+    <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
+    <label>Password<input name="password" type="password" required placeholder="Your password"></label>
+    <button>Login</button></form>
+    <p class="auth-switch">Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p>
+    <p class="auth-note">Logging in with the owner's email signs you in as admin automatically.</p></div>
+    """
+    return page("Login", body)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("You have been logged out.")
+    return redirect(url_for("home"))
+
+
+# --------------------------------------------------------------------------
 # Routes - Main Menu / Dashboard
 # --------------------------------------------------------------------------
 @app.route("/")
@@ -274,15 +882,57 @@ def home():
     cards = "".join(
         f'<div class="card"><div class="stat">{v}</div><div>{k}</div></div>' for k, v in stats.items()
     )
+    cities = ["Delhi", "Mumbai", "Lucknow", "Bengaluru", "Chennai", "Hyderabad", "Kolkata", "Ahmedabad", "Jaipur", "Patna", "Varanasi", "Pune", "Goa", "Kochi", "Guwahati", "Srinagar", "Dehradun", "Chandigarh", "Bhubaneswar", "Indore", "Nagpur", "Ranchi", "Raipur", "Amritsar", "Coimbatore", "Visakhapatnam", "Tirupati", "Agartala", "Port Blair"]
+    city_opts = "".join(f'<option>{c}</option>' for c in cities)
+    routes = [
+        ("Delhi", "Mumbai", "HZ101", "06:00 - 08:10", 4500),
+        ("Delhi", "Bengaluru", "HZ202", "09:00 - 11:45", 5200),
+        ("Mumbai", "Goa", "HZ303", "13:00 - 14:15", 3200),
+        ("Lucknow", "Delhi", "HZ404", "07:30 - 08:40", 2800),
+        ("Lucknow", "Bengaluru", "HZ518", "16:55 - 20:30", 7800),
+        ("Delhi", "Hyderabad", "HZ504", "09:45 - 12:35", 5200),
+    ]
+    route_cards = "".join(
+        f'<div class="card route-card"><h3>{a} to {b}</h3><p style="color:var(--muted)">{fno} - {tm} - Non-stop</p>'
+        f'<p><span style="color:var(--muted);font-size:.85rem">Starting from</span><br>'
+        f'<span class="from-fare">Rs.{fare:,}</span></p>'
+        f'<p><a class="btn" href="{url_for("flights")}?from_city={a}&to_city={b}">View Flights</a> '
+        f'<a class="btn ghost" href="{url_for("new_reservation")}?flight={fno}">Book Now</a></p></div>'
+        for a, b, fno, tm, fare in routes
+    )
     body = f"""
-    <div class="card"><h2>Main Menu</h2>
-    <p>Welcome to Horizon Airways. Bookings, reports and master tables — same features
-    as the original VB.NET desktop app, now in the browser on any operating system.</p></div>
+    <div class="hero"><span class="hero-tag">Horizon Airways</span>
+    <h1>Fly smart. Book in under a minute.</h1>
+    <p>Search a route, compare fares across classes, and get a confirmed PNR with an e-ticket instantly. When a class fills up, your booking joins the waiting list instead.</p>
+    <div class="card search-card" style="margin:20px 0 0;color:var(--ink)">
+    <form class="search-form" method="get" action="{url_for('flights')}">
+    <label>From<select name="from_city"><option value="">Anywhere</option>{city_opts}</select></label>
+    <label>To<select name="to_city"><option value="">Anywhere</option>{city_opts}</select></label>
+    <label>Travel Date<input type="date" name="travel_date"></label>
+    <label>Class<select name="travel_class"><option>Economy</option><option>Business</option><option>First</option></select></label>
+    <label>Sort<select name="sort"><option value="cheapest">Cheapest first</option><option value="earliest">Earliest departure</option><option value="fastest">Fastest</option></select></label>
+    <button>Search Flights</button></form></div></div>
+    <h2 style="margin:6px 0 12px">Popular routes</h2>
+    <div class="route-grid">{route_cards}</div>
+    <p style="color:var(--muted);font-size:.9rem">Note: routes added from the All-India airport list use demo fares and demo timings, not live airline fares.</p>
     <div class="grid">{cards}</div>
+    <div class="card"><h3>Why book with Horizon?</h3><div class="trust-grid">
+    <div><b>Instant PNR</b><p style="color:var(--muted)">Every booking gets a 5-character PNR and a printable e-ticket right away.</p></div>
+    <div><b>Transparent fares</b><p style="color:var(--muted)">The fare on your ticket is exactly the flight's class fare - no extra charges are added in this app.</p></div>
+    <div><b>Easy cancellation</b><p style="color:var(--muted)">Wait-listed bookings get a full refund. Confirmed bookings within 1 day of travel get 90%, otherwise a full refund.</p></div>
+    <div><b>Seat &amp; meal choice</b><p style="color:var(--muted)">Pick Window/Aisle and Veg/Non-veg while booking, just like a full booking flow.</p></div>
+    </div></div>
+    <div class="card faq"><h3>Frequently asked questions</h3>
+    <details><summary>What happens if my class is full?</summary><p style="color:var(--muted)">Your booking becomes Wait-listed. If a Confirmed Economy passenger cancels, the earliest Wait-listed passenger is promoted to Confirmed automatically.</p></details>
+    <details><summary>How do refunds work?</summary><p style="color:var(--muted)">Wait-listed: full refund. Confirmed and travelling within 1 day: 90% refund. Confirmed otherwise: full refund. A refund receipt is generated on cancellation.</p></details>
+    <details><summary>How do I become an admin?</summary><p style="color:var(--muted)">There is no separate admin signup. Logging in with the owner's email automatically signs you in as an admin, with access to Reports and flight management.</p></details>
+    <details><summary>Is this a real airline booking?</summary><p style="color:var(--muted)">No - this is a student project demo. Bookings are stored in this app's database and are not real airline tickets. Real flight inventory and payment would need a supported airline provider integration.</p></details>
+    </div>
     <div class="card"><h3>Quick links</h3>
     <p><a class="btn" href="{url_for('new_reservation')}">Make a Reservation</a>
-    <a class="btn light" href="{url_for('cancel')}">Cancel a Reservation</a>
-    <a class="btn light" href="{url_for('reports')}">View Reports</a></p></div>
+    <a class="btn ghost" href="{url_for('cancel')}">Cancel a Reservation</a>
+    <a class="btn ghost" href="{url_for('flight_status')}">Check Flight Status</a>
+    <a class="btn ghost" href="{url_for('reports')}">View Reports</a></p></div>
     """
     return page("Main Menu", body)
 
@@ -294,6 +944,12 @@ def home():
 def sectors():
     db = get_db()
     if request.method == "POST":
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can add or edit master data.")
+            return redirect(url_for("home"))
         db.execute(
             "INSERT OR REPLACE INTO sectors VALUES (?,?,?,?)",
             (request.form["sector_id"].strip().upper(), request.form["origin"].strip(),
@@ -321,6 +977,12 @@ def sectors():
 def aircraft():
     db = get_db()
     if request.method == "POST":
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can add or edit master data.")
+            return redirect(url_for("home"))
         db.execute(
             "INSERT OR REPLACE INTO aircraft VALUES (?,?,?,?,?)",
             (request.form["aircraft_id"].strip().upper(), request.form["description"].strip(),
@@ -350,6 +1012,12 @@ def aircraft():
 def flights():
     db = get_db()
     if request.method == "POST":
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can add or edit master data.")
+            return redirect(url_for("home"))
         db.execute(
             "INSERT OR REPLACE INTO flights VALUES (?,?,?,?,?,?,?,?,?,?)",
             (request.form["flight_no"].strip().upper(), request.form["sector_id"], request.form["aircraft_id"],
@@ -360,9 +1028,39 @@ def flights():
         db.commit()
         flash("Flight saved.")
         return redirect(url_for("flights"))
-    rows = db.execute(
-        "SELECT * FROM flights ORDER BY flight_no"
+    _from = request.args.get("from_city", "")
+    _to = request.args.get("to_city", "")
+    _sort = request.args.get("sort", "cheapest")
+    _travel_date = request.args.get("travel_date", "")
+    _tclass = request.args.get("travel_class", "")
+    raw = db.execute(
+        """SELECT f.*, s.origin, s.destination FROM flights f
+           JOIN sectors s ON s.sector_id=f.sector_id ORDER BY f.flight_no"""
     ).fetchall()
+    def _mins(t):
+        try:
+            h, m = t.split(":"); return int(h) * 60 + int(m)
+        except Exception:
+            return 0
+    rows = []
+    for r in raw:
+        if _from and r["origin"] != _from:
+            continue
+        if _to and r["destination"] != _to:
+            continue
+        d = dict(r)
+        fares = [f for f in (r["first_fare"], r["business_fare"], r["economy_fare"]) if f]
+        d["from_fare"] = min(fares) if fares else 0
+        dur = (_mins(r["arr_time"]) - _mins(r["dep_time"])) % (24 * 60)
+        d["duration"] = f"{dur // 60}h {dur % 60:02d}m"
+        d["_dur"] = dur
+        rows.append(d)
+    if _sort == "earliest":
+        rows.sort(key=lambda r: r["dep_time"])
+    elif _sort == "fastest":
+        rows.sort(key=lambda r: r["_dur"])
+    else:
+        rows.sort(key=lambda r: r["from_fare"])
     sector_opts = "".join(
         f'<option value="{r["sector_id"]}">{r["sector_id"]} ({r["origin"]} → {r["destination"]})</option>'
         for r in db.execute("SELECT * FROM sectors ORDER BY sector_id")
@@ -373,9 +1071,94 @@ def flights():
     )
     days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     day_opts = "".join(f'<option>{d}</option>' for d in days)
+    # 1-stop connecting options (only when no direct flight matches the search)
+    _conn_html = ""
+    if _from and _to and not rows:
+        _class_key = {"Economy": "economy_fare", "Business": "business_fare", "First": "first_fare"}.get(_tclass, "economy_fare")
+        _conn = []
+        for _leg1 in raw:
+            if _leg1["origin"] != _from:
+                continue
+            for _leg2 in raw:
+                if _leg2["origin"] != _leg1["destination"] or _leg2["destination"] != _to:
+                    continue
+                if not _leg1[_class_key] or not _leg2[_class_key]:
+                    continue
+                _lay = (_mins(_leg2["dep_time"]) - _mins(_leg1["arr_time"])) % (24 * 60)
+                _overnight = _mins(_leg2["dep_time"]) < _mins(_leg1["arr_time"])
+                _journey = (_mins(_leg2["arr_time"]) - _mins(_leg1["dep_time"])) % (24 * 60)
+                if _journey == 0:
+                    _journey = 24 * 60
+                _conn.append((_leg1, _leg2, _leg1[_class_key] + _leg2[_class_key], _lay, _overnight, _journey))
+        _conn.sort(key=lambda c: c[2])
+        if _conn:
+            _cards = ""
+            for _l1, _l2, _total, _lay, _over, _jour in _conn:
+                _cards += (
+                    f'<div class="card"><h3>1-stop via {_l1["destination"]} &mdash; {_from} to {_to}</h3>'
+                    f'<p><b>Leg 1:</b> {_l1["flight_no"]} &mdash; {_l1["origin"]} to {_l1["destination"]} ({_l1["dep_time"]} &ndash; {_l1["arr_time"]})<br>'
+                    f'<b>Leg 2:</b> {_l2["flight_no"]} &mdash; {_l2["origin"]} to {_l2["destination"]} ({_l2["dep_time"]} &ndash; {_l2["arr_time"]})</p>'
+                    f'<p><b>Total fare ({_tclass or "Economy"}):</b> Rs.{_total:,} &nbsp; <b>Journey:</b> {_jour // 60}h {_jour % 60:02d}m &nbsp; <b>Layover:</b> {_lay // 60}h {_lay % 60:02d}m'
+                    + (" (overnight)" if _over else "") + '</p>'
+                    f'<p><a class="btn" href="{url_for("new_reservation")}?flight={_l1["flight_no"]}&travel_class={_tclass or "Economy"}">Book Leg 1 ({_l1["flight_no"]})</a> '
+                    f'<a class="btn ghost" href="{url_for("new_reservation")}?flight={_l2["flight_no"]}&travel_class={_tclass or "Economy"}">Book Leg 2 ({_l2["flight_no"]})</a></p>'
+                    f'<p style="color:var(--muted);font-size:.9rem">Note: each reservation in this app is for one flight, so a connecting journey needs 2 separate bookings (2 PNRs) &mdash; one per leg.</p></div>'
+                )
+            _conn_html = f'<h2 style="margin:6px 0 12px">No direct flight &mdash; 1-stop options</h2>{_cards}'
+    _cities = ["Delhi", "Mumbai", "Lucknow", "Bengaluru", "Chennai", "Hyderabad", "Kolkata", "Ahmedabad", "Jaipur", "Patna", "Varanasi", "Pune", "Goa", "Kochi", "Guwahati", "Srinagar", "Dehradun", "Chandigarh", "Bhubaneswar", "Indore", "Nagpur", "Ranchi", "Raipur", "Amritsar", "Coimbatore", "Visakhapatnam", "Tirupati", "Agartala", "Port Blair"]
+    def _copts(sel):
+        return "".join(f'<option{" selected" if c == sel else ""}>{c}</option>' for c in _cities)
+    _note = ""
+    if _from or _to:
+        _note = f'<p style="color:var(--muted)">Showing flights {_from or "anywhere"} to {_to or "anywhere"}'
+        if _travel_date:
+            _note += f' on {_travel_date}'
+        if _tclass:
+            _note += f' - { _tclass} class fares highlighted in the fare columns below'
+        _note += '.</p>'
+    _empty = "" if rows else ('<p><b>No direct flights on this route yet.</b> Try another route, or <a href="/flights">view all flights</a>.</p>' if not _conn_html else "")
+    # Destination info strip (free, keyless APIs). External failures only
+    # hide pieces -- the flight table below always still renders.
+    _route_info = ""
+    if _from and _to:
+        info = _air_route_info(_from, _to, _travel_date)
+        parts = []
+        if "air_distance" in info:
+            parts.append(f"Seedhi hawai doori: {info['air_distance']}")
+        if "weather" in info:
+            parts.append(f"{html.escape(_to)} ka mausam: {html.escape(info['weather'])}")
+        if "aqi" in info:
+            parts.append(f"{html.escape(_to)} ki hawa: {html.escape(info['aqi'])}")
+        if "travel_weather" in info:
+            parts.append(f"Travel date {html.escape(info['travel_weather'])}")
+        if "sun" in info:
+            parts.append(html.escape(info["sun"]))
+        if parts:
+            _route_info = ('<div class="card"><p><b>Route info:</b> '
+                           + " &middot; ".join(parts) + "</p>"
+                           '<p style="color:var(--muted);font-size:.9rem">Live data: Open-Meteo (weather, air quality, forecast) / '
+                           "Wikipedia (destination guide). "
+                           "Ye sirf jaankari hai — booking ke liye neeche wali flights use karo.</p></div>")
+        if "guide" in info:
+            g = info["guide"]
+            img = (f'<img src="{html.escape(g["thumb"], quote=True)}" alt="{html.escape(_to)}" '
+                   'style="max-width:100%;border-radius:8px">') if g["thumb"] else ""
+            src = (f' <a href="{html.escape(g["url"], quote=True)}">Wikipedia</a>') if g["url"] else ""
+            _route_info += (f'<div class="card"><h3>{html.escape(g["title"])} ke baare me</h3>{img}'
+                            f'<p>{html.escape(g["text"])}</p>'
+                            f'<p style="color:var(--muted);font-size:.9rem">Source:{src}.</p></div>')
     body = f"""
     <div class="card"><h2>Flights</h2>
-    {table_html(rows, [('flight_no','Flight No.'),('sector_id','Sector ID'),('aircraft_id','Aircraft Type ID'),('dep_time','Departure'),('arr_time','Arrival'),('weekday1','WeekDay 1'),('weekday2','WeekDay 2'),('first_fare','First Fare ($)'),('business_fare','Business Fare ($)'),('economy_fare','Economy Fare ($)')])}
+    <form class="search-form" method="get" action="{url_for('flights')}">
+    <label>From<select name="from_city"><option value="">Anywhere</option>{_copts(_from)}</select></label>
+    <label>To<select name="to_city"><option value="">Anywhere</option>{_copts(_to)}</select></label>
+    <label>Sort<select name="sort"><option value="cheapest"{" selected" if _sort == "cheapest" else ""}>Cheapest first</option><option value="earliest"{" selected" if _sort == "earliest" else ""}>Earliest departure</option><option value="fastest"{" selected" if _sort == "fastest" else ""}>Fastest</option></select></label>
+    <button>Search</button></form>
+    {_note}{_empty}
+    {_route_info}
+    {_conn_html}
+    {table_html(rows, [('flight_no','Flight No.'),('sector_id','Route'),('origin','From'),('destination','To'),('dep_time','Departure'),('arr_time','Arrival'),('duration','Duration'),('from_fare','From Fare (Rs.)'),('first_fare','First Fare (Rs.)'),('business_fare','Business Fare (Rs.)'),('economy_fare','Economy Fare (Rs.)')])}
+    <p style="color:var(--muted);font-size:.9rem">Fare comparison: First, Business and Economy fares are shown side by side for every flight. A fare of 0 means that class is not offered on that flight. All flights shown are non-stop.</p>
     </div>
     <div class="card"><h3>Add / Edit Flight</h3><form method="post">
     <label>Flight Number<input name="flight_no" required placeholder="HZ101"></label>
@@ -397,6 +1180,12 @@ def flights():
 def schedule():
     db = get_db()
     if request.method == "POST":
+        if "user_id" not in session:
+            flash("Please login first to continue.")
+            return redirect(url_for("login", next=request.path))
+        if session.get("user_role") != "admin":
+            flash("Only admins can add or edit master data.")
+            return redirect(url_for("home"))
         db.execute(
             "INSERT OR IGNORE INTO scheduled_flights (flight_no, flight_date) VALUES (?,?)",
             (request.form["flight_no"], request.form["flight_date"]),
@@ -425,16 +1214,51 @@ def schedule():
     return page("Schedule Flights", body)
 
 
+@app.route("/flight-status")
+def flight_status():
+    db = get_db()
+    fno = request.args.get("flight_no", "").strip().upper()
+    result = ""
+    if fno:
+        r = db.execute(
+            """SELECT f.*, s.origin, s.destination FROM flights f
+               JOIN sectors s ON s.sector_id=f.sector_id WHERE f.flight_no=?""", (fno,)
+        ).fetchone()
+        if r:
+            fares = [f for f in (r["first_fare"], r["business_fare"], r["economy_fare"]) if f]
+            result = f"""<div class="card"><h3>{r["flight_no"]} - {r["origin"]} to {r["destination"]}</h3>
+            <p><b>Departure:</b> {r["dep_time"]} &nbsp; <b>Arrival:</b> {r["arr_time"]} &nbsp; <b>Aircraft:</b> {r["aircraft_id"]}</p>
+            <p><b>Operates:</b> {r["weekday1"]} and {r["weekday2"]} &nbsp; <b>Starting from:</b> Rs.{min(fares) if fares else 0:,}</p>
+            <p style="color:var(--muted)">Status: Scheduled (as per this app's timetable). This is a demo project, not a live airline feed, so real-time delays are not shown.</p>
+            <p><a class="btn" href="{url_for('new_reservation')}?flight={r["flight_no"]}">Book This Flight</a></p></div>"""
+        else:
+            result = f'<div class="card"><p><b>No flight found for {fno}.</b> Try HZ101, HZ202, HZ303 or HZ404.</p></div>'
+    body = f"""<div class="card"><h2>Flight Status</h2>
+    <form class="search-form" method="get" action="{url_for('flight_status')}">
+    <label>Flight Number<input name="flight_no" value="{fno}" placeholder="e.g. HZ101" required></label>
+    <button>Check Status</button></form></div>{result}"""
+    return page("Flight Status", body)
+
+
 # --------------------------------------------------------------------------
 # Reservations
 # --------------------------------------------------------------------------
 @app.route("/reservations")
+@login_required
 def reservations():
     db = get_db()
-    rows = db.execute(
-        """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
-                  flight_no, travel_date, fare, status FROM reservations ORDER BY created_on DESC"""
-    ).fetchall()
+    if session.get("user_role") == "admin" and request.args.get("mine") != "1":
+        rows = db.execute(
+            """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
+                      flight_no, travel_date, fare, status FROM reservations ORDER BY created_on DESC"""
+        ).fetchall()
+    else:
+        rows = db.execute(
+            """SELECT pnr, (first_name||' '||last_name) AS passenger, age, gender, travel_class,
+                      flight_no, travel_date, fare, status FROM reservations
+               WHERE user_id=? ORDER BY created_on DESC""",
+            (session["user_id"],),
+        ).fetchall()
     extra = ""
     if rows:
         links = " ".join(
@@ -444,12 +1268,15 @@ def reservations():
     body = f"""
     <div class="card"><h2>Reservations</h2>
     {table_html(rows, [('pnr','PNR No.'),('passenger','Passenger Name'),('age','Age'),('gender','Gender'),('travel_class','Class'),('flight_no','Flight No.'),('travel_date','Travel Date'),('fare','Fare Amount ($)'),('status','Status')])}
-    <p><a class="btn" href="{url_for('new_reservation')}">New Reservation</a></p></div>{extra}
+    <p><a class="btn" href="{url_for('new_reservation')}">New Reservation</a>
+    <a class="btn light" href="{url_for('reservations', mine=1)}">My Bookings</a>
+    <a class="btn light" href="{url_for('reservations')}">All Bookings</a></p></div>{extra}
     """
     return page("Reservations", body)
 
 
 @app.route("/reservations/new", methods=["GET", "POST"])
+@login_required
 def new_reservation():
     db = get_db()
     if request.method == "POST":
@@ -460,10 +1287,10 @@ def new_reservation():
         status = "Confirmed" if available > 0 else "Wait-listed"
         pnr = new_pnr(db)
         db.execute(
-            "INSERT INTO reservations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO reservations VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (pnr, f["first_name"].strip(), f["last_name"].strip(), int(f["age"] or 0), f["gender"],
              travel_class, f["flight_no"], f["travel_date"], fare, f["seat_pref"], f["meal_pref"],
-             f["ssr"].strip(), status, date.today().isoformat()),
+             f["ssr"].strip(), status, date.today().isoformat(), session.get("user_id")),
         )
         db.execute(
             "INSERT INTO daily_collections (pnr, tran_date, tran_type, amount) VALUES (?,?,?,?)",
@@ -472,8 +1299,10 @@ def new_reservation():
         db.commit()
         flash(f"Reservation created. PNR: {pnr} — Status: {status} — Fare: $ {fare:.2f}")
         return redirect(url_for("ticket", pnr=pnr))
+    _sel_flight = request.args.get("flight", "")
+    _sel_class = request.args.get("travel_class", "")
     flight_opts = "".join(
-        f'<option value="{r["flight_no"]}">{r["flight_no"]} — {r["origin"]} → {r["destination"]} ({r["dep_time"]})</option>'
+        f'<option value="{r["flight_no"]}"{" selected" if r["flight_no"] == _sel_flight else ""}>{r["flight_no"]} — {r["origin"]} → {r["destination"]} ({r["dep_time"]})</option>'
         for r in db.execute(
             """SELECT f.flight_no, f.dep_time, s.origin, s.destination FROM flights f
                JOIN sectors s ON s.sector_id=f.sector_id ORDER BY f.flight_no"""
@@ -489,12 +1318,12 @@ def new_reservation():
     <h3>Flight Details</h3>
     <label>Flight<select name="flight_no">{flight_opts}</select></label>
     <label>Travel Date<input name="travel_date" type="date" required></label>
-    <label>Class<select name="travel_class"><option>Economy</option><option>Business</option><option>First</option></select></label>
+    <label>Class<select name="travel_class"><option{" selected" if _sel_class == "Economy" else ""}>Economy</option><option{" selected" if _sel_class == "Business" else ""}>Business</option><option{" selected" if _sel_class == "First" else ""}>First</option></select></label>
     <label>Seat Preference<select name="seat_pref"><option>Window</option><option>Aisle</option></select></label>
     <label>Meal Preference<select name="meal_pref"><option>Veg</option><option>Non-veg</option></select></label>
     <label>Special Service Request<input name="ssr" placeholder="e.g. Wheelchair"></label>
     <p><button>Save Reservation &amp; Print Ticket</button></p>
-    <p style="font-size:13px;color:#555">Fare is taken automatically from the flight's class fare.
+    <p style="font-size:13px;color:#555">Transparent pricing: the fare on your ticket is exactly the flight's class fare - no extra charges are added in this app. Fare is taken automatically from the flight's class fare.
     If no seat is available in the chosen class, the status becomes <b>Wait-listed</b>
     (same seat-availability check as the original app).</p>
     </form></div>
@@ -503,6 +1332,7 @@ def new_reservation():
 
 
 @app.route("/ticket/<pnr>")
+@login_required
 def ticket(pnr):
     db = get_db()
     r = db.execute(
@@ -514,8 +1344,11 @@ def ticket(pnr):
     if r is None:
         flash("PNR not found.")
         return redirect(url_for("reservations"))
+    if not owns_booking(r):
+        flash("You can only view your own tickets.")
+        return redirect(url_for("reservations"))
     body = f"""
-    <div class="card"><h2 style="text-align:center">HORIZON AIRWAYS — E-Ticket</h2>
+    <div class="card" id="ticket-card"><h2 style="text-align:center">HORIZON AIRWAYS — E-Ticket</h2>
     <table>
      <tr><th>PNR No.</th><td>{r['pnr']}</td><th>Status</th><td>{r['status']}</td></tr>
      <tr><th>Passenger</th><td>{r['first_name']} {r['last_name']}</td><th>Age / Gender</th><td>{r['age']} / {r['gender']}</td></tr>
@@ -525,8 +1358,22 @@ def ticket(pnr):
      <tr><th>Special Request</th><td>{r['ssr'] or '-'}</td><th>Fare Amount</th><td>$ {r['fare']:.2f}</td></tr>
     </table>
     <p class="noprint"><button onclick="window.print()">Print Ticket</button>
+    <button onclick="downloadTicketPDF('{r['pnr']}')">Download PDF</button>
     <a class="btn light" href="{url_for('reservations')}">Back to Reservations</a></p></div>
-    """
+    """ + """
+<script>
+function downloadTicketPDF(pnr) {
+  var el = document.getElementById('ticket-card');
+  if (!el) { window.print(); return; }
+  function go() { html2pdf().set({margin: 10, filename: 'Horizon-Ticket-' + pnr + '.pdf', html2canvas: {scale: 2}, jsPDF: {unit: 'mm', format: 'a4', orientation: 'portrait'}}).from(el).save(); }
+  if (window.html2pdf) { go(); return; }
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+  s.onload = go;
+  s.onerror = function () { window.print(); };
+  document.head.appendChild(s);
+}
+</script>"""
     return page("Print Ticket", body)
 
 
@@ -534,6 +1381,7 @@ def ticket(pnr):
 # Cancellation + Refund receipt
 # --------------------------------------------------------------------------
 @app.route("/cancel", methods=["GET", "POST"])
+@login_required
 def cancel():
     db = get_db()
     detail = None
@@ -541,7 +1389,9 @@ def cancel():
     if request.method == "POST":
         pnr = request.form["pnr"].strip().upper()
         r = db.execute("SELECT * FROM reservations WHERE pnr=?", (pnr,)).fetchone()
-        if r is None:
+        if r is not None and not owns_booking(r):
+            flash("You can only cancel your own reservations.")
+        elif r is None:
             flash("PNR Number not found. Please re-enter.")
         elif r["status"] == "Cancelled":
             flash("The ticket is already cancelled.")
@@ -592,6 +1442,7 @@ def cancel():
 
 
 @app.route("/refund/<pnr>")
+@login_required
 def refund_receipt(pnr):
     refund = request.args.get("refund", "0")
     db = get_db()
@@ -599,6 +1450,9 @@ def refund_receipt(pnr):
     if r is None:
         flash("PNR not found.")
         return redirect(url_for("home"))
+    if not owns_booking(r):
+        flash("You can only view your own refund receipts.")
+        return redirect(url_for("reservations"))
     body = f"""
     <div class="card"><h2 style="text-align:center">HORIZON AIRWAYS — Refund Receipt</h2>
     <table>
@@ -616,6 +1470,7 @@ def refund_receipt(pnr):
 # Reports (from the original Main Menu -> Reports)
 # --------------------------------------------------------------------------
 @app.route("/reports")
+@admin_required
 def reports():
     db = get_db()
     confirmed = db.execute(

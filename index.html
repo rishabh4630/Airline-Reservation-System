@@ -434,6 +434,7 @@ html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-eve
       <div><h2>Flights &amp; fares</h2><p>Fares are per passenger, in ₹, shown side by side for First, Business and Economy so you can compare. “Seats left” below is for the travel date chosen in the booking form (default: tomorrow).</p><label style="display:block;margin-top:10px">Sort flights <select id="flightSort" style="margin-left:8px"><option value="cheapest">Cheapest first</option><option value="earliest">Earliest departure</option><option value="fastest">Fastest</option></select></label></div>
     </div>
     <div id="connectingBox"></div>
+    <div id="routeInfoBox"></div>
     <div id="flightList"></div>
 
     <div class="sec-head">
@@ -1154,6 +1155,107 @@ function renderConnecting(from, to){
   }).join("");
 }
 function bookLeg(no){ document.getElementById("bFlight").value = no; updateSummary(); showView("book"); }
+/* ================= DESTINATION INFO (free, keyless APIs) ================= */
+function esc(s){ return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function fetchTimeout(url, ms){
+  var c = new AbortController();
+  var t = setTimeout(function(){ c.abort(); }, ms);
+  return fetch(url, {signal: c.signal}).finally(function(){ clearTimeout(t); });
+}
+function weatherLabel(code){
+  if(code === 0) return "Saaf aasmaan";
+  if(code === 1) return "Zyaada tar saaf";
+  if(code === 2) return "Halke baadal";
+  if(code === 3) return "Baadal";
+  if(code === 45 || code === 48) return "Kohra";
+  if([51, 53, 55, 56, 57].indexOf(code) !== -1) return "Halki boondabaandi";
+  if(code === 61 || code === 80) return "Halki baarish";
+  if(code === 63 || code === 81) return "Baarish";
+  if([65, 82, 66, 67].indexOf(code) !== -1) return "Tez baarish";
+  if([71, 73, 75, 77, 85, 86].indexOf(code) !== -1) return "Barf";
+  if(code >= 95) return "Aandhi-toofan";
+  return "mausam uplabdh nahi";
+}
+function aqiLabel(aqi){
+  if(aqi <= 50) return "Good";
+  if(aqi <= 100) return "Moderate";
+  if(aqi <= 150) return "Unhealthy for Sensitive Groups";
+  if(aqi <= 200) return "Unhealthy";
+  if(aqi <= 300) return "Very Unhealthy";
+  return "Hazardous";
+}
+function haversineKm(a, b){
+  var r = 6371, dLat = (b[0]-a[0]) * Math.PI/180, dLon = (b[1]-a[1]) * Math.PI/180;
+  var h = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(a[0]*Math.PI/180) * Math.cos(b[0]*Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  return r * 2 * Math.asin(Math.sqrt(h));
+}
+function loadRouteInfo(fromCode, toCode, date){
+  var el = document.getElementById("routeInfoBox");
+  if(!el) return;
+  var fromCity = CITIES[fromCode], toCity = CITIES[toCode];
+  if(!fromCity || !toCity){ el.innerHTML = ""; return; }
+  var fromBase = fromCity.split(" (")[0], toBase = toCity.split(" (")[0];
+  el.innerHTML = '<div class="card"><p class="muted">Route info load ho rahi hai...</p></div>';
+  function coords(city){
+    return fetchTimeout("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(city + ", India"), 6000)
+      .then(function(r){ return r.json(); })
+      .then(function(d){ return (d && d.length) ? [parseFloat(d[0].lat), parseFloat(d[0].lon)] : null; })
+      .catch(function(){ return null; });
+  }
+  Promise.all([coords(fromBase), coords(toBase)]).then(function(cs){
+    var a = cs[0], b = cs[1];
+    var weatherJob = b ? fetchTimeout("https://api.open-meteo.com/v1/forecast?latitude=" + b[0] + "&longitude=" + b[1] + "&current=temperature_2m,weather_code&timezone=Asia%2FKolkata", 6000)
+      .then(function(r){ return r.json(); }).then(function(d){ return (d && d.current) ? d.current : null; }).catch(function(){ return null; }) : Promise.resolve(null);
+    var aqiJob = b ? fetchTimeout("https://air-quality-api.open-meteo.com/v1/air-quality?latitude=" + b[0] + "&longitude=" + b[1] + "&current=us_aqi,pm2_5", 6000)
+      .then(function(r){ return r.json(); }).then(function(d){ return (d && d.current) ? d.current : null; }).catch(function(){ return null; }) : Promise.resolve(null);
+    var travelJob = (function(){
+      if(!b || !date) return Promise.resolve(null);
+      var d = new Date(date + "T00:00:00");
+      var today = new Date(); today.setHours(0, 0, 0, 0);
+      var diff = Math.round((d - today) / 86400000);
+      if(isNaN(d.getTime()) || diff < 0 || diff > 16) return Promise.resolve(null);
+      return fetchTimeout("https://api.open-meteo.com/v1/forecast?latitude=" + b[0] + "&longitude=" + b[1] + "&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset&timezone=Asia%2FKolkata&start_date=" + date + "&end_date=" + date, 6000)
+        .then(function(r){ return r.json(); }).then(function(d2){ return (d2 && d2.daily && d2.daily.time && d2.daily.time.length) ? d2.daily : null; }).catch(function(){ return null; });
+    })();
+    var guideJob = fetchTimeout("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(toBase), 6000)
+      .then(function(r){ return r.ok ? r.json() : null; }).then(function(d){ return (d && d.extract) ? d : null; }).catch(function(){ return null; });
+    return Promise.all([weatherJob, aqiJob, travelJob, guideJob]).then(function(res){ return {a: a, b: b, res: res}; });
+  }).then(function(out){
+    var weather = out.res[0], aqi = out.res[1], travel = out.res[2], guide = out.res[3];
+    var parts = [];
+    if(out.a && out.b) parts.push("Seedhi hawai doori: ~" + Math.round(haversineKm(out.a, out.b)).toLocaleString("en-IN") + " km");
+    if(weather && weather.temperature_2m !== undefined) parts.push(esc(toCity) + " ka mausam: " + weather.temperature_2m + "°C, " + weatherLabel(weather.weather_code));
+    if(aqi && aqi.us_aqi !== undefined){
+      var aqiText = "AQI " + aqi.us_aqi + " (" + aqiLabel(aqi.us_aqi) + ")";
+      if(aqi.pm2_5 !== undefined) aqiText += ", PM2.5 " + aqi.pm2_5 + " µg/m³";
+      parts.push(esc(toCity) + " ki hawa: " + aqiText);
+    }
+    if(travel){
+      var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      var dd = new Date(date + "T00:00:00");
+      parts.push("Travel date " + dd.getDate() + " " + months[dd.getMonth()] + " ko: " + travel.temperature_2m_max[0] + "°C / " + travel.temperature_2m_min[0] + "°C, " + weatherLabel(travel.weather_code[0]));
+      if(travel.sunrise && travel.sunrise[0] && travel.sunset && travel.sunset[0]) parts.push("Suryaoday " + travel.sunrise[0].slice(11, 16) + ", Suryaast " + travel.sunset[0].slice(11, 16));
+    }
+    var guideHtml = "";
+    if(guide){
+      var text = guide.extract;
+      if(text.length > 300) text = text.slice(0, 300).split(" ").slice(0, -1).join(" ") + "…";
+      var img = (guide.thumbnail && guide.thumbnail.source) ? '<img src="' + esc(guide.thumbnail.source) + '" alt="' + esc(toCity) + '" style="max-width:100%;border-radius:8px">' : "";
+      var src = (guide.content_urls && guide.content_urls.desktop && guide.content_urls.desktop.page) ? ' <a href="' + esc(guide.content_urls.desktop.page) + '">Wikipedia</a>' : "";
+      guideHtml = '<div class="card"><h3>' + esc(guide.title || toCity) + ' ke baare me</h3>' + img + "<p>" + esc(text) + "</p>" + '<p class="muted">Source:' + src + ".</p></div>";
+    }
+    if(!parts.length && !guideHtml){
+      el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai (live service se data nahi mila).</p></div>';
+    } else {
+      var stripHtml = parts.length ? '<div class="card"><p><b>Route info:</b> ' + parts.join(" &middot; ") + "</p>" +
+        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide). Ye sirf jaankari hai — ' +
+        "booking ke liye neeche wali flights use karo.</p></div>" : "";
+      el.innerHTML = stripHtml + guideHtml;
+    }
+  }).catch(function(){
+    el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai.</p></div>';
+  });
+}
 document.getElementById("quickSearch").addEventListener("submit", function(e){
   e.preventDefault();
   var from = document.getElementById("qFrom").value, to = document.getElementById("qTo").value;
@@ -1171,6 +1273,7 @@ document.getElementById("quickSearch").addEventListener("submit", function(e){
     updateSummary(); showView("flights"); renderConnecting(from, to);
     toast("No direct flight "+from+" → "+to+" — 1-stop options shown above");
   }
+  loadRouteInfo(from, to, date);
 });
 
 /* ================= TOAST ================= */
