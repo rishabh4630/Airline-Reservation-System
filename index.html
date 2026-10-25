@@ -573,7 +573,13 @@ var SECTORS = [
 var AIRCRAFT = [
   {code:"A320", name:"Airbus A320", First:8, Business:16, Economy:120},
   {code:"B737", name:"Boeing 737-800", First:8, Business:20, Economy:132},
-  {code:"ATR72", name:"ATR 72-600", First:4, Business:8, Economy:56}
+  {code:"ATR72", name:"ATR 72-600", First:4, Business:8, Economy:56},
+  {code:"A321", name:"Airbus A321", First:12, Business:24, Economy:170},
+  {code:"B777", name:"Boeing 777-300ER", First:16, Business:40, Economy:250},
+  {code:"B787", name:"Boeing 787-8 Dreamliner", First:12, Business:30, Economy:200},
+  {code:"A333", name:"Airbus A330-300", First:12, Business:36, Economy:220},
+  {code:"E190", name:"Embraer E190", First:0, Business:8, Economy:88},
+  {code:"Q400", name:"Bombardier Q400", First:0, Business:0, Economy:78}
 ];
 var FLIGHTS = [
   {no:"HZ101", sector:"DEL-BOM", aircraft:"A320", dep:"06:00", arr:"08:10", dur:"2h 10m", fares:{First:12000, Business:8000, Economy:4500}},
@@ -726,7 +732,7 @@ function renderStats(){
   var stats = [
     {num: FLIGHTS.length, lbl:"Flights", sub:"HZ101 – HZ404, daily"},
     {num: SECTORS.length, lbl:"Sectors", sub:"5 cities served"},
-    {num: AIRCRAFT.length, lbl:"Aircraft", sub:"A320 · B737 · ATR72"},
+    {num: AIRCRAFT.length, lbl:"Aircraft", sub: AIRCRAFT.map(function(a){ return a.code; }).join(" · ")},
     {num: active.length, lbl:"Reservations", sub: reservations.filter(function(r){return r.status==="Cancelled";}).length + " cancelled"},
     {num: conf.length, lbl:"Confirmed", sub: wait.length + " on waiting list"},
     {num: inr(revenue), lbl:"Collections", sub:"Active bookings, gross"}

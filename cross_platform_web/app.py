@@ -329,6 +329,20 @@ def init_db(seed=True):
             [("HZ101", today), ("HZ202", today), ("HZ303", today), ("HZ404", today)],
         )
 
+    # Fleet expansion (2026-10-25): INSERT OR IGNORE so existing databases
+    # also gain the new aircraft without touching existing flights.
+    db.executemany(
+        "INSERT OR IGNORE INTO aircraft VALUES (?,?,?,?,?)",
+        [
+            ("A321", "Airbus A321", 12, 24, 170),
+            ("B777", "Boeing 777-300ER", 16, 40, 250),
+            ("B787", "Boeing 787-8 Dreamliner", 12, 30, 200),
+            ("A333", "Airbus A330-300", 12, 36, 220),
+            ("E190", "Embraer E190", 0, 8, 88),
+            ("Q400", "Bombardier Q400", 0, 0, 78),
+        ],
+    )
+
     # All-India expansion (user-supplied airport/route list, 2026-10-24):
     # INSERT OR IGNORE so existing databases also gain the new routes
     # without touching the original 4 flights, and demo fares are labelled
