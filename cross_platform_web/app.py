@@ -1099,52 +1099,52 @@ def profile():
                  f'<td>Rs.{r["fare"]:,.0f}</td>'
                  f'<td><a class="btn" href="{url_for("ticket", pnr=r["pnr"])}">Ticket</a></td></tr>')
     if not rows:
-        rows = '<tr><td colspan="7">Abhi koi booking nahi hai.</td></tr>'
+        rows = '<tr><td colspan="7">No bookings yet.</td></tr>'
     city_opts = "".join(
         f'<option value="{html.escape(c)}"{" selected" if c == prefs.get("default_from", "") else ""}>{html.escape(c)}</option>'
         for c in cities)
     confirm_card = ""
     if request.args.get("confirm") == "delete":
-        confirm_card = f"""<div class="card"><h3>Account delete karein?</h3>
-        <p>Ye action wapas nahi hoga: tumhara account aur tumhari saari bookings delete ho jayengi.</p>
+        confirm_card = f"""<div class="card"><h3>Delete your account?</h3>
+        <p>This cannot be undone: your account and all your bookings will be deleted.</p>
         <form method="post"><input type="hidden" name="action" value="delete_account">
         <label>Password<input type="password" name="password" required></label><br>
-        <label><input type="checkbox" name="confirm" value="yes" required> Haan, mera account delete karo</label><br>
+        <label><input type="checkbox" name="confirm" value="yes" required> Yes, delete my account</label><br>
         <button type="submit" style="background:var(--danger)">Delete my account</button>
-        <a class="btn" href="{url_for("profile")}">Wapas</a></form></div>"""
+        <a class="btn" href="{url_for("profile")}">Back</a></form></div>"""
     body = f"""<div class="profile-hero"><div class="profile-avatar">{html.escape(initials)}</div>
     <div><h2>{html.escape(user["name"])}</h2><p>{html.escape(user["email"])}</p>
     <span class="role-pill">{html.escape(user["role"])}</span></div>
     <div style="margin-left:auto;text-align:right"><p style="margin:0;color:#dbeeff;font-size:.85rem">Account since<br>{created_on}</p></div></div>
     <div class="pstat-grid"><div class="pstat"><b>{stats["c"]}</b><span>Total bookings</span></div>
     <div class="pstat"><b>{stats["conf"]}</b><span>Confirmed</span></div>
-    <div class="pstat"><b>Rs.{stats["spent"]:,.0f}</b><span>Total kharcha (cancelled chhod kar)</span></div></div>
-    <div class="card" style="margin-top:16px"><h3>Meri haal ki bookings</h3>
+    <div class="pstat"><b>Rs.{stats["spent"]:,.0f}</b><span>Total spent (excluding cancelled)</span></div></div>
+    <div class="card" style="margin-top:16px"><h3>My recent bookings</h3>
     <table><tr><th>PNR</th><th>Route</th><th>Date</th><th>Class</th><th>Status</th><th>Fare</th><th></th></tr>{rows}</table>
-    <p><a class="btn" href="{url_for("reservations")}">Saari bookings dekho</a></p></div>
+    <p><a class="btn" href="{url_for("reservations")}">View all bookings</a></p></div>
     <div class="card"><h3>Account</h3>
     <form method="post"><input type="hidden" name="action" value="edit_name">
     <label>Full name<input name="name" value="{html.escape(user["name"])}" required></label><br>
-    <button type="submit">Naam save karo</button></form>
+    <button type="submit">Save name</button></form>
     <form method="post" style="margin-top:16px"><input type="hidden" name="action" value="change_password">
     <label>Current password<input type="password" name="current_password" required></label><br>
-    <label>Naya password<input type="password" name="new_password" required placeholder="Kam se kam 8 characters, letter + number"></label><br>
-    <label>Naya password dobara<input type="password" name="new_password2" required></label><br>
-    <button type="submit">Password change karo</button></form></div>
+    <label>New password<input type="password" name="new_password" required placeholder="At least 8 characters, letters + numbers"></label><br>
+    <label>New password again<input type="password" name="new_password2" required></label><br>
+    <button type="submit">Change password</button></form></div>
     <div class="card"><h3>Settings</h3>
     <form method="post"><input type="hidden" name="action" value="settings">
     <p>Theme<br>
     <label><input type="radio" name="theme" value="system"{" checked" if theme == "system" else ""}> System</label>
     <label><input type="radio" name="theme" value="light"{" checked" if theme == "light" else ""}> Light</label>
     <label><input type="radio" name="theme" value="dark"{" checked" if theme == "dark" else ""}> Dark</label></p>
-    <label>Default departure city (home search me pehle se chuna hoga)
-    <select name="default_from"><option value="">Koi nahi</option>{city_opts}</select></label><br>
-    <button type="submit">Settings save karo</button></form></div>
-    <div class="card"><h3>Danger zone</h3><p>Ye actions sirf tumhare account par lagenge.</p>
+    <label>Default departure city (preselected in the home search)
+    <select name="default_from"><option value="">None</option>{city_opts}</select></label><br>
+    <button type="submit">Save settings</button></form></div>
+    <div class="card"><h3>Danger zone</h3><p>These actions affect only your account.</p>
     <form method="post" style="display:inline"><input type="hidden" name="action" value="clear_bookings">
-    <label><input type="checkbox" name="confirm" value="yes" required> Meri bookings clear karo</label>
+    <label><input type="checkbox" name="confirm" value="yes" required> Clear my bookings</label>
     <button type="submit">Clear my bookings</button></form>
-    <p style="margin-top:12px"><a class="btn" style="background:var(--danger)" href="{url_for("profile")}?confirm=delete">Account delete karo</a></p></div>
+    <p style="margin-top:12px"><a class="btn" style="background:var(--danger)" href="{url_for("profile")}?confirm=delete">Delete account</a></p></div>
     {confirm_card}"""
     return page("Profile & Settings", body)
 
