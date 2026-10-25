@@ -15,10 +15,15 @@ Run:
 Then open http://127.0.0.1:5000 in any browser.
 """
 
+import html
+import json
+import math
 import os
 import random
 import sqlite3
 import string
+import urllib.parse
+import urllib.request
 from datetime import date, datetime
 from functools import wraps
 
@@ -30,6 +35,166 @@ DATABASE = os.path.join(BASE_DIR, "airline.db")
 
 app = Flask(__name__)
 app.secret_key = "horizon-airways-dev-key-change-me"
+
+
+# ---------------------------------------------------------------------------
+# Destination info (free, keyless APIs): Open-Meteo weather / air quality /
+# travel-date forecast, Wikipedia destination guide. Road distance is NOT
+# used here -- flights need straight-line air distance, computed locally
+# from coordinates (haversine). Any external failure only hides pieces of
+# the strip; flight results always still render.
+# ---------------------------------------------------------------------------
+def _fetch_json(url, timeout=5, headers=None):
+    req = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read().decode("utf-8", "replace"))
+    except Exception:
+        return None
+
+
+def _weather_label(code):
+    if code is None:
+        return "mausam uplabdh nahi"
+    code = int(code)
+    if code == 0:
+        return "Saaf aasmaan"
+    if code == 1:
+        return "Zyaada tar saaf"
+    if code == 2:
+        return "Halke baadal"
+    if code == 3:
+        return "Baadal"
+    if code in (45, 48):
+        return "Kohra"
+    if code in (51, 53, 55, 56, 57):
+        return "Halki boondabaandi"
+    if code in (61, 80):
+        return "Halki baarish"
+    if code in (63, 81):
+        return "Baarish"
+    if code in (65, 82, 66, 67):
+        return "Tez baarish"
+    if code in (71, 73, 75, 77, 85, 86):
+        return "Barf"
+    if code in (95, 96, 99):
+        return "Aandhi-toofan"
+    return "mausam uplabdh nahi"
+
+
+def _aqi_label(aqi):
+    try:
+        aqi = float(aqi)
+    except (TypeError, ValueError):
+        return ""
+    if aqi <= 50:
+        return "Good"
+    if aqi <= 100:
+        return "Moderate"
+    if aqi <= 150:
+        return "Unhealthy for Sensitive Groups"
+    if aqi <= 200:
+        return "Unhealthy"
+    if aqi <= 300:
+        return "Very Unhealthy"
+    return "Hazardous"
+
+
+def _resolve_coords(city):
+    data = _fetch_json(
+        "https://nominatim.openstreetmap.org/search?format=json&limit=1&q="
+        + urllib.parse.quote(city + ", India"),
+        headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
+    )
+    if data and isinstance(data, list) and data:
+        try:
+            return (float(data[0]["lat"]), float(data[0]["lon"]))
+        except (KeyError, TypeError, ValueError):
+            return None
+    return None
+
+
+def _haversine_km(a, b):
+    lat1, lon1 = math.radians(a[0]), math.radians(a[1])
+    lat2, lon2 = math.radians(b[0]), math.radians(b[1])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    return 6371 * 2 * math.asin(math.sqrt(h))
+
+
+def _air_route_info(from_city, to_city, travel_date=None):
+    """Destination weather, air quality, travel-date forecast and guide.
+    Never raises; returns a dict that may be partial or empty."""
+    info = {}
+    try:
+        start = _resolve_coords(from_city)
+        dest = _resolve_coords(to_city)
+        if start and dest:
+            info["air_distance"] = f"~{round(_haversine_km(start, dest)):,} km"
+        if dest:
+            data = _fetch_json(
+                "https://api.open-meteo.com/v1/forecast"
+                f"?latitude={dest[0]}&longitude={dest[1]}"
+                "&current=temperature_2m,weather_code&timezone=Asia%2FKolkata"
+            )
+            current = (data or {}).get("current") or {}
+            if "temperature_2m" in current:
+                info["weather"] = (
+                    f"{current['temperature_2m']}°C, "
+                    f"{_weather_label(current.get('weather_code'))}"
+                )
+            data = _fetch_json(
+                "https://air-quality-api.open-meteo.com/v1/air-quality"
+                f"?latitude={dest[0]}&longitude={dest[1]}&current=us_aqi,pm2_5",
+                timeout=4,
+            )
+            current = (data or {}).get("current") or {}
+            if current.get("us_aqi") is not None:
+                label = _aqi_label(current["us_aqi"])
+                pm = current.get("pm2_5")
+                info["aqi"] = f"AQI {current['us_aqi']} ({label})" + (
+                    f", PM2.5 {pm} µg/m³" if pm is not None else "")
+            if travel_date:
+                try:
+                    d = date.fromisoformat(travel_date)
+                    if 0 <= (d - date.today()).days <= 16:
+                        data = _fetch_json(
+                            "https://api.open-meteo.com/v1/forecast"
+                            f"?latitude={dest[0]}&longitude={dest[1]}"
+                            "&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset"
+                            "&timezone=Asia%2FKolkata"
+                            f"&start_date={travel_date}&end_date={travel_date}",
+                            timeout=4,
+                        )
+                        daily = (data or {}).get("daily") or {}
+                        if (daily.get("time") or []):
+                            info["travel_weather"] = (
+                                f"{d.strftime('%d %b')} ko: "
+                                f"{daily['temperature_2m_max'][0]}°C / {daily['temperature_2m_min'][0]}°C, "
+                                f"{_weather_label(daily['weather_code'][0])}"
+                            )
+                            sr = (daily.get("sunrise") or [""])[0]
+                            ss = (daily.get("sunset") or [""])[0]
+                            if sr and ss:
+                                info["sun"] = f"Suryaoday {sr[11:16]}, Suryaast {ss[11:16]}"
+                except (ValueError, KeyError, IndexError, TypeError):
+                    pass
+            data = _fetch_json(
+                "https://en.wikipedia.org/api/rest_v1/page/summary/" + urllib.parse.quote(to_city),
+                timeout=4,
+                headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
+            )
+            if data and data.get("extract"):
+                text = data["extract"]
+                if len(text) > 300:
+                    text = text[:300].rsplit(" ", 1)[0] + "…"
+                thumb = (data.get("thumbnail") or {}).get("source", "")
+                page = ((data.get("content_urls") or {}).get("desktop") or {}).get("page", "")
+                info["guide"] = {"title": data.get("title") or to_city,
+                                 "text": text, "thumb": thumb, "url": page}
+    except Exception:
+        pass
+    return info
 
 # The owner account: logging in with this email is automatically an admin,
 # so there is no separate admin signup/login page.
@@ -952,6 +1117,36 @@ def flights():
             _note += f' - { _tclass} class fares highlighted in the fare columns below'
         _note += '.</p>'
     _empty = "" if rows else ('<p><b>No direct flights on this route yet.</b> Try another route, or <a href="/flights">view all flights</a>.</p>' if not _conn_html else "")
+    # Destination info strip (free, keyless APIs). External failures only
+    # hide pieces -- the flight table below always still renders.
+    _route_info = ""
+    if _from and _to:
+        info = _air_route_info(_from, _to, _travel_date)
+        parts = []
+        if "air_distance" in info:
+            parts.append(f"Seedhi hawai doori: {info['air_distance']}")
+        if "weather" in info:
+            parts.append(f"{html.escape(_to)} ka mausam: {html.escape(info['weather'])}")
+        if "aqi" in info:
+            parts.append(f"{html.escape(_to)} ki hawa: {html.escape(info['aqi'])}")
+        if "travel_weather" in info:
+            parts.append(f"Travel date {html.escape(info['travel_weather'])}")
+        if "sun" in info:
+            parts.append(html.escape(info["sun"]))
+        if parts:
+            _route_info = ('<div class="card"><p><b>Route info:</b> '
+                           + " &middot; ".join(parts) + "</p>"
+                           '<p style="color:var(--muted);font-size:.9rem">Live data: Open-Meteo (weather, air quality, forecast) / '
+                           "Wikipedia (destination guide). "
+                           "Ye sirf jaankari hai — booking ke liye neeche wali flights use karo.</p></div>")
+        if "guide" in info:
+            g = info["guide"]
+            img = (f'<img src="{html.escape(g["thumb"], quote=True)}" alt="{html.escape(_to)}" '
+                   'style="max-width:100%;border-radius:8px">') if g["thumb"] else ""
+            src = (f' <a href="{html.escape(g["url"], quote=True)}">Wikipedia</a>') if g["url"] else ""
+            _route_info += (f'<div class="card"><h3>{html.escape(g["title"])} ke baare me</h3>{img}'
+                            f'<p>{html.escape(g["text"])}</p>'
+                            f'<p style="color:var(--muted);font-size:.9rem">Source:{src}.</p></div>')
     body = f"""
     <div class="card"><h2>Flights</h2>
     <form class="search-form" method="get" action="{url_for('flights')}">
@@ -960,6 +1155,7 @@ def flights():
     <label>Sort<select name="sort"><option value="cheapest"{" selected" if _sort == "cheapest" else ""}>Cheapest first</option><option value="earliest"{" selected" if _sort == "earliest" else ""}>Earliest departure</option><option value="fastest"{" selected" if _sort == "fastest" else ""}>Fastest</option></select></label>
     <button>Search</button></form>
     {_note}{_empty}
+    {_route_info}
     {_conn_html}
     {table_html(rows, [('flight_no','Flight No.'),('sector_id','Route'),('origin','From'),('destination','To'),('dep_time','Departure'),('arr_time','Arrival'),('duration','Duration'),('from_fare','From Fare (Rs.)'),('first_fare','First Fare (Rs.)'),('business_fare','Business Fare (Rs.)'),('economy_fare','Economy Fare (Rs.)')])}
     <p style="color:var(--muted);font-size:.9rem">Fare comparison: First, Business and Economy fares are shown side by side for every flight. A fare of 0 means that class is not offered on that flight. All flights shown are non-stop.</p>
