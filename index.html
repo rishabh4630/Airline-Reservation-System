@@ -1225,9 +1225,15 @@ function loadRouteInfo(fromCode, toCode, date){
     })();
     var guideJob = fetchTimeout("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(toBase), 6000)
       .then(function(r){ return r.ok ? r.json() : null; }).then(function(d){ return (d && d.extract) ? d : null; }).catch(function(){ return null; });
-    return Promise.all([weatherJob, aqiJob, travelJob, guideJob]).then(function(res){ return {a: a, b: b, res: res}; });
+    var airportJob = fetchTimeout("https://www.airport-data.com/api/ap_info.json?iata=" + toCode, 6000)
+      .then(function(r){ return r.json(); }).then(function(d){ return (d && d.status === 200 && d.name) ? d : null; }).catch(function(){ return null; });
+    var weekJob = b ? fetchTimeout("https://api.open-meteo.com/v1/forecast?latitude=" + b[0] + "&longitude=" + b[1] + "&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=Asia%2FKolkata&forecast_days=7", 6000)
+      .then(function(r){ return r.json(); }).then(function(d){ return (d && d.daily && d.daily.time && d.daily.time.length) ? d.daily : null; }).catch(function(){ return null; }) : Promise.resolve(null);
+    var fxJob = fetchTimeout("https://api.frankfurter.app/latest?from=INR&to=USD,EUR,GBP", 6000)
+      .then(function(r){ return r.json(); }).then(function(d){ return (d && d.rates) ? d.rates : null; }).catch(function(){ return null; });
+    return Promise.all([weatherJob, aqiJob, travelJob, guideJob, airportJob, weekJob, fxJob]).then(function(res){ return {a: a, b: b, res: res}; });
   }).then(function(out){
-    var weather = out.res[0], aqi = out.res[1], travel = out.res[2], guide = out.res[3];
+    var weather = out.res[0], aqi = out.res[1], travel = out.res[2], guide = out.res[3], airport = out.res[4], week = out.res[5], fx = out.res[6];
     var parts = [];
     if(out.a && out.b) parts.push("Seedhi hawai doori: ~" + Math.round(haversineKm(out.a, out.b)).toLocaleString("en-IN") + " km");
     if(weather && weather.temperature_2m !== undefined) parts.push(esc(toCity) + " ka mausam: " + weather.temperature_2m + "°C, " + weatherLabel(weather.weather_code));
@@ -1242,6 +1248,14 @@ function loadRouteInfo(fromCode, toCode, date){
       parts.push("Travel date " + dd.getDate() + " " + months[dd.getMonth()] + " ko: " + travel.temperature_2m_max[0] + "°C / " + travel.temperature_2m_min[0] + "°C, " + weatherLabel(travel.weather_code[0]));
       if(travel.sunrise && travel.sunrise[0] && travel.sunset && travel.sunset[0]) parts.push("Suryaoday " + travel.sunrise[0].slice(11, 16) + ", Suryaast " + travel.sunset[0].slice(11, 16));
     }
+    if(airport){
+      var apText = airport.name;
+      if(airport.iata){ apText += " (" + airport.iata; if(airport.icao) apText += " · " + airport.icao; apText += ")"; }
+      parts.push(esc(toCity) + " airport: " + apText);
+    }
+    if(fx && fx.USD && fx.EUR && fx.GBP){
+      parts.push("Currency (approx, ECB rates): $1 ≈ ₹" + Math.round(1 / fx.USD).toLocaleString("en-IN") + " · €1 ≈ ₹" + Math.round(1 / fx.EUR).toLocaleString("en-IN") + " · £1 ≈ ₹" + Math.round(1 / fx.GBP).toLocaleString("en-IN"));
+    }
     var guideHtml = "";
     if(guide){
       var text = guide.extract;
@@ -1250,13 +1264,21 @@ function loadRouteInfo(fromCode, toCode, date){
       var src = (guide.content_urls && guide.content_urls.desktop && guide.content_urls.desktop.page) ? ' <a href="' + esc(guide.content_urls.desktop.page) + '">Wikipedia</a>' : "";
       guideHtml = '<div class="card"><h3>' + esc(guide.title || toCity) + ' ke baare me</h3>' + img + "<p>" + esc(text) + "</p>" + '<p class="muted">Source:' + src + ".</p></div>";
     }
-    if(!parts.length && !guideHtml){
+    var weekHtml = "";
+    if(week){
+      var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      var weekParts = week.time.map(function(t, i){
+        return days[new Date(t + "T00:00:00").getDay()] + " " + Math.round(week.temperature_2m_max[i]) + "°/" + Math.round(week.temperature_2m_min[i]) + "°";
+      });
+      weekHtml = '<div class="card"><h3>' + esc(toCity) + ' — agle 7 din ka mausam</h3><p>' + weekParts.join(" &middot; ") + '</p><p class="muted">Open-Meteo forecast.</p></div>';
+    }
+    if(!parts.length && !guideHtml && !weekHtml){
       el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai (live service se data nahi mila).</p></div>';
     } else {
       var stripHtml = parts.length ? '<div class="card"><p><b>Route info:</b> ' + parts.join(" &middot; ") + "</p>" +
-        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide). Ye sirf jaankari hai — ' +
+        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide) / airport-data.com (airport) / Frankfurter (currency). Ye sirf jaankari hai — ' +
         "booking ke liye neeche wali flights use karo.</p></div>" : "";
-      el.innerHTML = stripHtml + guideHtml;
+      el.innerHTML = stripHtml + guideHtml + weekHtml;
     }
   }).catch(function(){
     el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai.</p></div>';

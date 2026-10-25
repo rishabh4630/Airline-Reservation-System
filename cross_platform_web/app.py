@@ -122,6 +122,19 @@ def _haversine_km(a, b):
     return 6371 * 2 * math.asin(math.sqrt(h))
 
 
+# City name -> IATA airport code (matches the demo's All-India airports table).
+CITY_IATA = {
+    "Delhi": "DEL", "Mumbai": "BOM", "Lucknow": "LKO", "Bengaluru": "BLR",
+    "Chennai": "MAA", "Hyderabad": "HYD", "Kolkata": "CCU", "Ahmedabad": "AMD",
+    "Jaipur": "JAI", "Patna": "PAT", "Varanasi": "VNS", "Pune": "PNQ",
+    "Goa": "GOI", "Kochi": "COK", "Guwahati": "GAU", "Srinagar": "SXR",
+    "Dehradun": "DED", "Chandigarh": "IXC", "Bhubaneswar": "BBI", "Indore": "IDR",
+    "Nagpur": "NAG", "Ranchi": "IXR", "Raipur": "RPR", "Amritsar": "ATQ",
+    "Coimbatore": "CJB", "Visakhapatnam": "VTZ", "Tirupati": "TIR",
+    "Agartala": "IXA", "Port Blair": "IXZ",
+}
+
+
 def _air_route_info(from_city, to_city, travel_date=None):
     """Destination weather, air quality, travel-date forecast and guide.
     Never raises; returns a dict that may be partial or empty."""
@@ -179,6 +192,52 @@ def _air_route_info(from_city, to_city, travel_date=None):
                                 info["sun"] = f"Suryaoday {sr[11:16]}, Suryaast {ss[11:16]}"
                 except (ValueError, KeyError, IndexError, TypeError):
                     pass
+            # Destination airport (airport-data.com, keyless).
+            iata = CITY_IATA.get(to_city)
+            if iata:
+                data = _fetch_json(
+                    "https://www.airport-data.com/api/ap_info.json?iata=" + iata,
+                    timeout=4,
+                    headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
+                )
+                if data and data.get("status") == 200 and data.get("name"):
+                    ap = data["name"]
+                    if data.get("iata"):
+                        ap += f" ({data['iata']}"
+                        if data.get("icao"):
+                            ap += f" · {data['icao']}"
+                        ap += ")"
+                    info["airport"] = ap
+            # 7-day outlook (Open-Meteo daily).
+            data = _fetch_json(
+                "https://api.open-meteo.com/v1/forecast"
+                f"?latitude={dest[0]}&longitude={dest[1]}"
+                "&daily=temperature_2m_max,temperature_2m_min,weather_code"
+                "&timezone=Asia%2FKolkata&forecast_days=7",
+                timeout=4,
+            )
+            daily = (data or {}).get("daily") or {}
+            if (daily.get("time") or []):
+                days = []
+                for dstr, mx, mn in zip(daily["time"], daily["temperature_2m_max"],
+                                        daily["temperature_2m_min"]):
+                    try:
+                        days.append(f"{date.fromisoformat(dstr).strftime('%a')} {mx:.0f}°/{mn:.0f}°")
+                    except ValueError:
+                        continue
+                if days:
+                    info["week"] = " · ".join(days)
+            # Currency vs INR (Frankfurter, keyless, ECB reference rates).
+            data = _fetch_json(
+                "https://api.frankfurter.app/latest?from=INR&to=USD,EUR,GBP",
+                timeout=4,
+                headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
+            )
+            rates = (data or {}).get("rates") or {}
+            if rates.get("USD") and rates.get("EUR") and rates.get("GBP"):
+                info["fx"] = (f"$1 ≈ ₹{round(1 / rates['USD']):,} · "
+                              f"€1 ≈ ₹{round(1 / rates['EUR']):,} · "
+                              f"£1 ≈ ₹{round(1 / rates['GBP']):,}")
             data = _fetch_json(
                 "https://en.wikipedia.org/api/rest_v1/page/summary/" + urllib.parse.quote(to_city),
                 timeout=4,
@@ -1147,11 +1206,15 @@ def flights():
             parts.append(f"Travel date {html.escape(info['travel_weather'])}")
         if "sun" in info:
             parts.append(html.escape(info["sun"]))
+        if "airport" in info:
+            parts.append(f"{html.escape(_to)} airport: {html.escape(info['airport'])}")
+        if "fx" in info:
+            parts.append(f"Currency (approx, ECB rates): {html.escape(info['fx'])}")
         if parts:
             _route_info = ('<div class="card"><p><b>Route info:</b> '
                            + " &middot; ".join(parts) + "</p>"
                            '<p style="color:var(--muted);font-size:.9rem">Live data: Open-Meteo (weather, air quality, forecast) / '
-                           "Wikipedia (destination guide). "
+                           "Wikipedia (destination guide) / airport-data.com (airport) / Frankfurter (currency). "
                            "Ye sirf jaankari hai — booking ke liye neeche wali flights use karo.</p></div>")
         if "guide" in info:
             g = info["guide"]
@@ -1161,6 +1224,10 @@ def flights():
             _route_info += (f'<div class="card"><h3>{html.escape(g["title"])} ke baare me</h3>{img}'
                             f'<p>{html.escape(g["text"])}</p>'
                             f'<p style="color:var(--muted);font-size:.9rem">Source:{src}.</p></div>')
+        if "week" in info:
+            _route_info += (f'<div class="card"><h3>{html.escape(_to)} — agle 7 din ka mausam</h3>'
+                            f'<p>{html.escape(info["week"])}</p>'
+                            '<p style="color:var(--muted);font-size:.9rem">Open-Meteo forecast.</p></div>')
     body = f"""
     <div class="card"><h2>Flights</h2>
     <form class="search-form" method="get" action="{url_for('flights')}">
