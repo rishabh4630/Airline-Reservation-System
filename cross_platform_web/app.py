@@ -192,22 +192,25 @@ def _air_route_info(from_city, to_city, travel_date=None):
                                 info["sun"] = f"Suryaoday {sr[11:16]}, Suryaast {ss[11:16]}"
                 except (ValueError, KeyError, IndexError, TypeError):
                     pass
-            # Destination airport (airport-data.com, keyless).
+            # Destination airport (AirportMiles, keyless, open CORS so the
+            # demo's browser fetch works too -- airport-data.com sends no
+            # CORS headers and browsers block it).
             iata = CITY_IATA.get(to_city)
             if iata:
                 data = _fetch_json(
-                    "https://www.airport-data.com/api/ap_info.json?iata=" + iata,
+                    "https://airportmiles.com/api/v1/airports/" + iata.lower() + ".json",
                     timeout=4,
                     headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
                 )
-                if data and data.get("status") == 200 and data.get("name"):
-                    ap = data["name"]
-                    if data.get("iata"):
-                        ap += f" ({data['iata']}"
-                        if data.get("icao"):
-                            ap += f" · {data['icao']}"
-                        ap += ")"
-                    info["airport"] = ap
+                ap = (data or {}).get("airport") or {}
+                if ap.get("name"):
+                    name = ap["name"]
+                    if ap.get("iata"):
+                        name += f" ({ap['iata']}"
+                        if ap.get("icao"):
+                            name += f" · {ap['icao']}"
+                        name += ")"
+                    info["airport"] = name
             # 7-day outlook (Open-Meteo daily).
             data = _fetch_json(
                 "https://api.open-meteo.com/v1/forecast"
@@ -229,7 +232,7 @@ def _air_route_info(from_city, to_city, travel_date=None):
                     info["week"] = " · ".join(days)
             # Currency vs INR (Frankfurter, keyless, ECB reference rates).
             data = _fetch_json(
-                "https://api.frankfurter.app/latest?from=INR&to=USD,EUR,GBP",
+                "https://api.frankfurter.dev/v1/latest?from=INR&to=USD,EUR,GBP",
                 timeout=4,
                 headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
             )
@@ -1237,7 +1240,7 @@ def flights():
             _route_info = ('<div class="card"><p><b>Route info:</b> '
                            + " &middot; ".join(parts) + "</p>"
                            '<p style="color:var(--muted);font-size:.9rem">Live data: Open-Meteo (weather, air quality, forecast) / '
-                           "Wikipedia (destination guide) / airport-data.com (airport) / Frankfurter (currency) / "
+                           "Wikipedia (destination guide) / AirportMiles (airport) / Frankfurter (currency) / "
                            "India Public Holidays (holiday). "
                            "Ye sirf jaankari hai — booking ke liye neeche wali flights use karo.</p></div>")
         if "guide" in info:
