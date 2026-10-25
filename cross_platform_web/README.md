@@ -32,6 +32,11 @@ a Why Horizon section and FAQ.
   own bookings), and logout. There is no separate admin signup/login
   page: logging in with the owner's email (`OWNER_EMAIL` in `app.py`)
   automatically signs you in as an admin.
+- **Profile & Settings** — `/profile` (login required): premium profile
+  card with booking stats and recent bookings, edit name, change
+  password, theme (System/Light/Dark), default departure city for the
+  home search, plus clear-my-bookings and delete-account in the danger
+  zone.
 - **Admin (owner only)** — an admin can view all reservations, open
   Reports, and add/edit flights, sectors, aircraft and schedules.
 - Passwords are stored only as hashes, never in plain text. Booking,

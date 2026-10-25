@@ -396,6 +396,8 @@ def init_db(seed=True):
     ucols = [r[1] for r in db.execute("PRAGMA table_info(users)")]
     if "role" not in ucols:
         db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'")
+    if "prefs" not in ucols:
+        db.execute("ALTER TABLE users ADD COLUMN prefs TEXT NOT NULL DEFAULT '{}'")
     if seed and db.execute("SELECT COUNT(*) FROM sectors").fetchone()[0] == 0:
         db.executemany(
             "INSERT INTO sectors VALUES (?,?,?,?)",
@@ -844,7 +846,19 @@ LAYOUT = """
  .auth-card{border-radius:20px}
  .search-card{border-radius:20px}
  @media (max-width:600px){ main{padding-left:14px;padding-right:14px} }
-html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}.scenery svg{width:100%;height:100%;display:block}.cloud1{animation:drift1 75s linear infinite}.cloud2{animation:drift2 100s linear infinite}.cloud3{animation:drift3 85s linear infinite}.cloud4{animation:drift4 115s linear infinite}@keyframes drift1{from{transform:translate(-420px,120px)}to{transform:translate(2120px,120px)}}@keyframes drift2{from{transform:translate(-380px,240px)}to{transform:translate(2120px,240px)}}@keyframes drift3{from{transform:translate(-500px,70px) scale(.85)}to{transform:translate(2120px,70px) scale(.85)}}@keyframes drift4{from{transform:translate(-350px,320px) scale(1.15)}to{transform:translate(2120px,320px) scale(1.15)}}.plane-fly{animation:fly 32s linear infinite}@keyframes fly{0%{transform:translate(-340px,520px) rotate(-3deg)}45%{transform:translate(900px,360px) rotate(-1deg)}100%{transform:translate(2260px,500px) rotate(-3deg)}}.route-dash{animation:dashmove 3s linear infinite}@keyframes dashmove{to{stroke-dashoffset:-52}}.bp-float{animation:bpf 6s ease-in-out infinite alternate}@keyframes bpf{from{transform:translateY(0)}to{transform:translateY(-12px)}}@media (prefers-color-scheme:dark){.scenery{opacity:.35;filter:saturate(.85) brightness(.8)}}@media (prefers-reduced-motion:reduce){.cloud1,.cloud2,.cloud3,.cloud4,.plane-fly,.route-dash,.bp-float{animation:none}}.video-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}.video-bg video{width:100%;height:100%;object-fit:cover;display:block}.video-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,59,120,.38),rgba(6,59,120,.12) 45%,rgba(234,245,255,.20))}@media (prefers-reduced-motion:reduce){.video-bg{display:none}}.card{background:color-mix(in srgb, var(--surface) 94%, transparent)}</style></head><body>
+html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-events:none;overflow:hidden}.scenery svg{width:100%;height:100%;display:block}.cloud1{animation:drift1 75s linear infinite}.cloud2{animation:drift2 100s linear infinite}.cloud3{animation:drift3 85s linear infinite}.cloud4{animation:drift4 115s linear infinite}@keyframes drift1{from{transform:translate(-420px,120px)}to{transform:translate(2120px,120px)}}@keyframes drift2{from{transform:translate(-380px,240px)}to{transform:translate(2120px,240px)}}@keyframes drift3{from{transform:translate(-500px,70px) scale(.85)}to{transform:translate(2120px,70px) scale(.85)}}@keyframes drift4{from{transform:translate(-350px,320px) scale(1.15)}to{transform:translate(2120px,320px) scale(1.15)}}.plane-fly{animation:fly 32s linear infinite}@keyframes fly{0%{transform:translate(-340px,520px) rotate(-3deg)}45%{transform:translate(900px,360px) rotate(-1deg)}100%{transform:translate(2260px,500px) rotate(-3deg)}}.route-dash{animation:dashmove 3s linear infinite}@keyframes dashmove{to{stroke-dashoffset:-52}}.bp-float{animation:bpf 6s ease-in-out infinite alternate}@keyframes bpf{from{transform:translateY(0)}to{transform:translateY(-12px)}}@media (prefers-color-scheme:dark){.scenery{opacity:.35;filter:saturate(.85) brightness(.8)}}@media (prefers-reduced-motion:reduce){.cloud1,.cloud2,.cloud3,.cloud4,.plane-fly,.route-dash,.bp-float{animation:none}}.video-bg{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}.video-bg video{width:100%;height:100%;object-fit:cover;display:block}.video-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,59,120,.38),rgba(6,59,120,.12) 45%,rgba(234,245,255,.20))}@media (prefers-reduced-motion:reduce){.video-bg{display:none}}.card{background:color-mix(in srgb, var(--surface) 94%, transparent)}
+html[data-theme="dark"]{--bg:#091423;--surface:#101f33;--surface2:#16293f;--ink:#edf3f9;--muted:#a4b6c9;--faint:#75899f;--navy:#041a33;--navy2:#0a3a6b;--accent:#4aa8ec;--accent-soft:#0d2a4a;--amber:#f0a13c;--danger:#ff8a7a;--danger-soft:#3d1a16;--ok:#5fd68f;--ok-soft:#14301f;--line:#2f4566;--line2:#2f4566;--shadow:0 10px 30px rgba(0,0,0,.35)}
+html[data-theme="light"]{--bg:#f4f8fd;--surface:#ffffff;--surface2:#eaf5ff;--ink:#13273f;--muted:#5d6f84;--faint:#8494a7;--navy:#063b78;--navy2:#0b5fa5;--accent:#0878d1;--accent-soft:#eaf5ff;--amber:#f59e0b;--danger:#b42318;--danger-soft:#fdecea;--ok:#067647;--ok-soft:#e6f4ea;--line:#dbe7f3;--line2:#dbe2ea;--shadow:0 10px 30px rgba(6,59,120,.10)}
+.profile-hero{background:linear-gradient(120deg,var(--navy),var(--accent));color:#fff;border-radius:22px;padding:26px;display:flex;gap:18px;align-items:center;flex-wrap:wrap;box-shadow:var(--shadow)}
+.profile-avatar{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.55);display:grid;place-items:center;font-size:1.6rem;font-weight:900;flex:none}
+.profile-hero h2{margin:0;color:#fff}
+.profile-hero p{margin:5px 0 0;color:#dbeeff}
+.role-pill{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:999px;padding:3px 12px;font-size:.8rem;font-weight:700;margin-top:8px}
+.pstat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.pstat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+.pstat b{font-size:1.4rem;display:block}
+.pstat span{color:var(--muted);font-size:.85rem}
+@media(max-width:600px){.pstat-grid{grid-template-columns:1fr}}</style></head><body>
 <div class="scenery" aria-hidden="true"><svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
 <defs><linearGradient id="skys" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fb8e8"/><stop offset=".55" stop-color="#c8e4f7"/><stop offset="1" stop-color="#eaf5ff"/></linearGradient><radialGradient id="glow"><stop offset="0" stop-color="#ffe27a" stop-opacity=".9"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient></defs>
 <rect width="1920" height="1080" fill="url(#skys)"/>
@@ -881,6 +895,7 @@ html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-eve
  <a href="{{ url_for('reports') }}">Reports</a>
  {% if session.get('user_id') %}
   <span class="hello">Hello, {{ session.get('user_name') }} ({{ session.get('user_role') }})</span>
+  <a href="{{ url_for('profile') }}">Profile</a>
   <a href="{{ url_for('logout') }}">Logout</a>
  {% else %}
   <a href="{{ url_for('login') }}">Login</a>
@@ -897,7 +912,11 @@ html{background:var(--bg)}.scenery{position:fixed;inset:0;z-index:-2;pointer-eve
 
 
 def page(title, body, **ctx):
-    return render_template_string(LAYOUT, title=title, body=render_template_string(body, **ctx))
+    layout = LAYOUT
+    theme = request.cookies.get("theme", "")
+    if theme in ("dark", "light"):
+        layout = layout.replace('<html lang="en">', f'<html lang="en" data-theme="{theme}">', 1)
+    return render_template_string(layout, title=title, body=render_template_string(body, **ctx))
 
 
 def table_html(rows, cols):
@@ -985,6 +1004,151 @@ def logout():
     return redirect(url_for("home"))
 
 
+@app.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    db = get_db()
+    user = current_user()
+    prefs_row = db.execute("SELECT prefs FROM users WHERE id=?", (user["id"],)).fetchone()
+    try:
+        prefs = json.loads(prefs_row["prefs"] or "{}") if prefs_row else {}
+    except Exception:
+        prefs = {}
+    if not isinstance(prefs, dict):
+        prefs = {}
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        if action == "edit_name":
+            name = request.form.get("name", "").strip()
+            if not name:
+                flash("Name cannot be empty.")
+            else:
+                db.execute("UPDATE users SET name=? WHERE id=?", (name, user["id"]))
+                db.commit()
+                session["user_name"] = name
+                flash("Name updated.")
+        elif action == "change_password":
+            cur = request.form.get("current_password", "")
+            new = request.form.get("new_password", "")
+            new2 = request.form.get("new_password2", "")
+            urow = db.execute("SELECT password_hash FROM users WHERE id=?", (user["id"],)).fetchone()
+            if not check_password_hash(urow["password_hash"], cur):
+                flash("Current password is incorrect.")
+            elif len(new) < 8 or not re.search(r"[A-Za-z]", new) or not re.search(r"[0-9]", new):
+                flash("Password must be at least 8 characters and include both letters and numbers.")
+            elif new != new2:
+                flash("New passwords do not match.")
+            else:
+                db.execute("UPDATE users SET password_hash=? WHERE id=?",
+                           (generate_password_hash(new), user["id"]))
+                db.commit()
+                flash("Password changed.")
+        elif action == "settings":
+            theme = request.form.get("theme", "system")
+            prefs["default_from"] = request.form.get("default_from", "")
+            db.execute("UPDATE users SET prefs=? WHERE id=?", (json.dumps(prefs), user["id"]))
+            db.commit()
+            resp = redirect(url_for("profile"))
+            if theme in ("dark", "light"):
+                resp.set_cookie("theme", theme, max_age=31536000)
+            else:
+                resp.delete_cookie("theme")
+            flash("Settings saved.")
+            return resp
+        elif action == "clear_bookings":
+            if request.form.get("confirm") == "yes":
+                db.execute("DELETE FROM reservations WHERE user_id=?", (user["id"],))
+                db.commit()
+                flash("Your bookings have been cleared.")
+            else:
+                flash("Please tick the confirmation box.")
+        elif action == "delete_account":
+            if request.form.get("confirm") != "yes":
+                flash("Please tick the confirmation box.")
+            else:
+                urow = db.execute("SELECT password_hash FROM users WHERE id=?", (user["id"],)).fetchone()
+                if not check_password_hash(urow["password_hash"], request.form.get("password", "")):
+                    flash("Password is incorrect. Account was not deleted.")
+                else:
+                    db.execute("DELETE FROM reservations WHERE user_id=?", (user["id"],))
+                    db.execute("DELETE FROM users WHERE id=?", (user["id"],))
+                    db.commit()
+                    session.clear()
+                    flash("Account deleted.")
+                    return redirect(url_for("home"))
+        return redirect(url_for("profile"))
+    stats = db.execute(
+        "SELECT COUNT(*) c, COALESCE(SUM(CASE WHEN status='Confirmed' THEN 1 ELSE 0 END),0) conf, "
+        "COALESCE(SUM(CASE WHEN status!='Cancelled' THEN fare ELSE 0 END),0) spent "
+        "FROM reservations WHERE user_id=?", (user["id"],)).fetchone()
+    latest = db.execute(
+        "SELECT r.*, s.origin, s.destination FROM reservations r "
+        "LEFT JOIN flights f ON f.flight_no=r.flight_no LEFT JOIN sectors s ON s.sector_id=f.sector_id "
+        "WHERE r.user_id=? ORDER BY r.created_on DESC, r.rowid DESC LIMIT 5", (user["id"],)).fetchall()
+    cities = sorted({r[0] for r in db.execute(
+        "SELECT origin FROM sectors UNION SELECT destination FROM sectors").fetchall()})
+    created_row = db.execute("SELECT created_on FROM users WHERE id=?", (user["id"],)).fetchone()
+    created_on = created_row["created_on"] if created_row else "—"
+    initials = "".join(w[0] for w in user["name"].split()[:2]).upper()
+    theme = request.cookies.get("theme", "system")
+    rows = ""
+    for r in latest:
+        route = f"{r['origin']} → {r['destination']}" if r["origin"] else "—"
+        rows += (f'<tr><td class="mono"><b>{r["pnr"]}</b></td><td>{html.escape(route)}</td>'
+                 f'<td>{r["travel_date"]}</td><td>{r["travel_class"]}</td><td>{r["status"]}</td>'
+                 f'<td>Rs.{r["fare"]:,.0f}</td>'
+                 f'<td><a class="btn" href="{url_for("ticket", pnr=r["pnr"])}">Ticket</a></td></tr>')
+    if not rows:
+        rows = '<tr><td colspan="7">Abhi koi booking nahi hai.</td></tr>'
+    city_opts = "".join(
+        f'<option value="{html.escape(c)}"{" selected" if c == prefs.get("default_from", "") else ""}>{html.escape(c)}</option>'
+        for c in cities)
+    confirm_card = ""
+    if request.args.get("confirm") == "delete":
+        confirm_card = f"""<div class="card"><h3>Account delete karein?</h3>
+        <p>Ye action wapas nahi hoga: tumhara account aur tumhari saari bookings delete ho jayengi.</p>
+        <form method="post"><input type="hidden" name="action" value="delete_account">
+        <label>Password<input type="password" name="password" required></label><br>
+        <label><input type="checkbox" name="confirm" value="yes" required> Haan, mera account delete karo</label><br>
+        <button type="submit" style="background:var(--danger)">Delete my account</button>
+        <a class="btn" href="{url_for("profile")}">Wapas</a></form></div>"""
+    body = f"""<div class="profile-hero"><div class="profile-avatar">{html.escape(initials)}</div>
+    <div><h2>{html.escape(user["name"])}</h2><p>{html.escape(user["email"])}</p>
+    <span class="role-pill">{html.escape(user["role"])}</span></div>
+    <div style="margin-left:auto;text-align:right"><p style="margin:0;color:#dbeeff;font-size:.85rem">Account since<br>{created_on}</p></div></div>
+    <div class="pstat-grid"><div class="pstat"><b>{stats["c"]}</b><span>Total bookings</span></div>
+    <div class="pstat"><b>{stats["conf"]}</b><span>Confirmed</span></div>
+    <div class="pstat"><b>Rs.{stats["spent"]:,.0f}</b><span>Total kharcha (cancelled chhod kar)</span></div></div>
+    <div class="card" style="margin-top:16px"><h3>Meri haal ki bookings</h3>
+    <table><tr><th>PNR</th><th>Route</th><th>Date</th><th>Class</th><th>Status</th><th>Fare</th><th></th></tr>{rows}</table>
+    <p><a class="btn" href="{url_for("reservations")}">Saari bookings dekho</a></p></div>
+    <div class="card"><h3>Account</h3>
+    <form method="post"><input type="hidden" name="action" value="edit_name">
+    <label>Full name<input name="name" value="{html.escape(user["name"])}" required></label><br>
+    <button type="submit">Naam save karo</button></form>
+    <form method="post" style="margin-top:16px"><input type="hidden" name="action" value="change_password">
+    <label>Current password<input type="password" name="current_password" required></label><br>
+    <label>Naya password<input type="password" name="new_password" required placeholder="Kam se kam 8 characters, letter + number"></label><br>
+    <label>Naya password dobara<input type="password" name="new_password2" required></label><br>
+    <button type="submit">Password change karo</button></form></div>
+    <div class="card"><h3>Settings</h3>
+    <form method="post"><input type="hidden" name="action" value="settings">
+    <p>Theme<br>
+    <label><input type="radio" name="theme" value="system"{" checked" if theme == "system" else ""}> System</label>
+    <label><input type="radio" name="theme" value="light"{" checked" if theme == "light" else ""}> Light</label>
+    <label><input type="radio" name="theme" value="dark"{" checked" if theme == "dark" else ""}> Dark</label></p>
+    <label>Default departure city (home search me pehle se chuna hoga)
+    <select name="default_from"><option value="">Koi nahi</option>{city_opts}</select></label><br>
+    <button type="submit">Settings save karo</button></form></div>
+    <div class="card"><h3>Danger zone</h3><p>Ye actions sirf tumhare account par lagenge.</p>
+    <form method="post" style="display:inline"><input type="hidden" name="action" value="clear_bookings">
+    <label><input type="checkbox" name="confirm" value="yes" required> Meri bookings clear karo</label>
+    <button type="submit">Clear my bookings</button></form>
+    <p style="margin-top:12px"><a class="btn" style="background:var(--danger)" href="{url_for("profile")}?confirm=delete">Account delete karo</a></p></div>
+    {confirm_card}"""
+    return page("Profile & Settings", body)
+
+
 # --------------------------------------------------------------------------
 # Routes - Main Menu / Dashboard
 # --------------------------------------------------------------------------
@@ -1046,7 +1210,15 @@ def home():
         f'<div class="card"><div class="stat">{v}</div><div>{k}</div></div>' for k, v in stats.items()
     )
     cities = ["Delhi", "Mumbai", "Lucknow", "Bengaluru", "Chennai", "Hyderabad", "Kolkata", "Ahmedabad", "Jaipur", "Patna", "Varanasi", "Pune", "Goa", "Kochi", "Guwahati", "Srinagar", "Dehradun", "Chandigarh", "Bhubaneswar", "Indore", "Nagpur", "Ranchi", "Raipur", "Amritsar", "Coimbatore", "Visakhapatnam", "Tirupati", "Agartala", "Port Blair"]
-    city_opts = "".join(f'<option>{c}</option>' for c in cities)
+    _pref = ""
+    if "user_id" in session:
+        _prow = db.execute("SELECT prefs FROM users WHERE id=?", (session["user_id"],)).fetchone()
+        if _prow and _prow[0]:
+            try:
+                _pref = json.loads(_prow[0]).get("default_from", "") or ""
+            except Exception:
+                _pref = ""
+    city_opts = "".join(f'<option{" selected" if c == _pref else ""}>{c}</option>' for c in cities)
     routes = [
         ("Delhi", "Mumbai", "HZ101", "06:00 - 08:10", 4500),
         ("Delhi", "Bengaluru", "HZ202", "09:00 - 11:45", 5200),
