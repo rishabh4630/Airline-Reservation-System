@@ -55,19 +55,25 @@ def _fetch_json(url, timeout=5, headers=None):
 
 
 def _email_deliverable(email):
-    """Disify check (keyless, no signup): True when the domain has DNS/MX and is
-    not a disposable address. Returns True on any API failure, so a dead
-    third-party service never blocks signup -- format validation still applies."""
+    """Disify check (keyless, no signup). Strict: returns "ok" only when the
+    domain positively confirms DNS/MX and a non-disposable address.
+    "dns" = domain cannot receive mail, "disposable" = temporary address,
+    "unverifiable" = API failure, timeout or unexpected reply. Anything
+    other than "ok" blocks signup -- an unverified email is never allowed."""
     data = _fetch_json(
         "https://disify.com/api/email/" + urllib.parse.quote(email),
         timeout=5,
         headers={"User-Agent": "Horizon-Airways/1.0 (student demo)"},
     )
-    if not data:
-        return True
-    if data.get("dns") is False or data.get("disposable") is True:
-        return False
-    return True
+    if not data or not isinstance(data, dict):
+        return "unverifiable"
+    if data.get("dns") is False:
+        return "dns"
+    if data.get("disposable") is True:
+        return "disposable"
+    if data.get("dns") is not True:
+        return "unverifiable"
+    return "ok"
 
 
 def _weather_label(code):
@@ -938,14 +944,23 @@ def register():
         name = request.form["name"].strip()
         email = request.form["email"].strip().lower()
         password = request.form["password"]
+        _email_status = "ok"
+        if (name and re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$", email)
+                and len(password) >= 8 and re.search(r"[a-z]", password)
+                and re.search(r"[A-Z]", password) and re.search(r"[0-9]", password)):
+            _email_status = _email_deliverable(email)
         if not name:
             flash("Please enter your full name.")
         elif not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$", email):
             flash("Please enter a valid email address (e.g. name@example.com).")
-        elif len(password) < 8 or not re.search(r"[A-Za-z]", password) or not re.search(r"[0-9]", password):
-            flash("Password must be at least 8 characters and include both letters and numbers.")
-        elif not _email_deliverable(email):
-            flash("This email domain cannot receive mail, or it is a temporary/disposable address. Please use your real email.")
+        elif len(password) < 8 or not re.search(r"[a-z]", password) or not re.search(r"[A-Z]", password) or not re.search(r"[0-9]", password):
+            flash("Password must be at least 8 characters and include uppercase, lowercase and a number.")
+        elif _email_status == "dns":
+            flash("This email domain cannot receive email. Please use a valid email address.")
+        elif _email_status == "disposable":
+            flash("Temporary/disposable emails are not allowed. Please use your real email.")
+        elif _email_status != "ok":
+            flash("Email could not be verified. Please try again.")
         elif get_db().execute("SELECT 1 FROM users WHERE email=?", (email,)).fetchone():
             flash("This email is already registered. Please login instead.")
             return redirect(url_for("login"))
@@ -967,7 +982,7 @@ def register():
     <p class="auth-sub">Book flights, view your tickets and manage your reservations.</p><form method="post">
     <label>Full Name<input name="name" required placeholder="e.g. Aarav Sharma"></label>
     <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
-    <label>Password<input name="password" type="password" minlength="8" required placeholder="At least 8 characters, letters + numbers"></label>
+    <label>Password<input name="password" type="password" minlength="8" required placeholder="At least 8 characters, uppercase, lowercase + number"></label>
     <button>Create Account</button></form>
     <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
     """
@@ -1034,8 +1049,8 @@ def profile():
             urow = db.execute("SELECT password_hash FROM users WHERE id=?", (user["id"],)).fetchone()
             if not check_password_hash(urow["password_hash"], cur):
                 flash("Current password is incorrect.")
-            elif len(new) < 8 or not re.search(r"[A-Za-z]", new) or not re.search(r"[0-9]", new):
-                flash("Password must be at least 8 characters and include both letters and numbers.")
+            elif len(new) < 8 or not re.search(r"[a-z]", new) or not re.search(r"[A-Z]", new) or not re.search(r"[0-9]", new):
+                flash("Password must be at least 8 characters and include uppercase, lowercase and a number.")
             elif new != new2:
                 flash("New passwords do not match.")
             else:
@@ -1128,7 +1143,7 @@ def profile():
     <button type="submit">Save name</button></form>
     <form method="post" style="margin-top:16px"><input type="hidden" name="action" value="change_password">
     <label>Current password<input type="password" name="current_password" required></label><br>
-    <label>New password<input type="password" name="new_password" required placeholder="At least 8 characters, letters + numbers"></label><br>
+    <label>New password<input type="password" name="new_password" required placeholder="At least 8 characters, uppercase, lowercase + number"></label><br>
     <label>New password again<input type="password" name="new_password2" required></label><br>
     <button type="submit">Change password</button></form></div>
     <div class="card"><h3>Settings</h3>
