@@ -1225,11 +1225,12 @@ function loadRouteInfo(fromCode, toCode, date){
     })();
     var guideJob = fetchTimeout("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(toBase), 6000)
       .then(function(r){ return r.ok ? r.json() : null; }).then(function(d){ return (d && d.extract) ? d : null; }).catch(function(){ return null; });
-    var airportJob = fetchTimeout("https://www.airport-data.com/api/ap_info.json?iata=" + toCode, 6000)
-      .then(function(r){ return r.json(); }).then(function(d){ return (d && d.status === 200 && d.name) ? d : null; }).catch(function(){ return null; });
+    var apCode = (toCode === "GOA") ? "GOI" : toCode;
+    var airportJob = fetchTimeout("https://airportmiles.com/api/v1/airports/" + apCode.toLowerCase() + ".json", 6000)
+      .then(function(r){ return r.ok ? r.json() : null; }).then(function(d){ return (d && d.airport && d.airport.name) ? d.airport : null; }).catch(function(){ return null; });
     var weekJob = b ? fetchTimeout("https://api.open-meteo.com/v1/forecast?latitude=" + b[0] + "&longitude=" + b[1] + "&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=Asia%2FKolkata&forecast_days=7", 6000)
       .then(function(r){ return r.json(); }).then(function(d){ return (d && d.daily && d.daily.time && d.daily.time.length) ? d.daily : null; }).catch(function(){ return null; }) : Promise.resolve(null);
-    var fxJob = fetchTimeout("https://api.frankfurter.app/latest?from=INR&to=USD,EUR,GBP", 6000)
+    var fxJob = fetchTimeout("https://api.frankfurter.dev/v1/latest?from=INR&to=USD,EUR,GBP", 6000)
       .then(function(r){ return r.json(); }).then(function(d){ return (d && d.rates) ? d.rates : null; }).catch(function(){ return null; });
     var holidayJob = date ? fetchTimeout("https://calendar-api-d7a8.onrender.com/v1/date/is-holiday?country=IN&date=" + date, 6000)
       .then(function(r){ return r.json(); }).then(function(d){ var it = (d && d.data && d.data[0]) || {}; return it.is_holiday ? it.holidays : null; }).catch(function(){ return null; }) : Promise.resolve(null);
@@ -1282,7 +1283,7 @@ function loadRouteInfo(fromCode, toCode, date){
       el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai (live service se data nahi mila).</p></div>';
     } else {
       var stripHtml = parts.length ? '<div class="card"><p><b>Route info:</b> ' + parts.join(" &middot; ") + "</p>" +
-        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide) / airport-data.com (airport) / Frankfurter (currency) / India Public Holidays (holiday). Ye sirf jaankari hai — ' +
+        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide) / AirportMiles (airport) / Frankfurter (currency) / India Public Holidays (holiday). Ye sirf jaankari hai — ' +
         "booking ke liye neeche wali flights use karo.</p></div>" : "";
       el.innerHTML = stripHtml + guideHtml + weekHtml;
     }
