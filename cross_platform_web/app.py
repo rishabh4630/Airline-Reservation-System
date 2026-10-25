@@ -24,7 +24,7 @@ import sqlite3
 import string
 import urllib.parse
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import wraps
 
 from flask import Flask, flash, g, redirect, render_template_string, request, session, url_for
@@ -965,6 +965,49 @@ def logout():
 # --------------------------------------------------------------------------
 # Routes - Main Menu / Dashboard
 # --------------------------------------------------------------------------
+def _route_info_html(info, to_city, note="booking ke liye neeche wali flights use karo."):
+    """Render the Route info strip + guide + 7-day cards from _air_route_info output.
+    Returns "" when every external call failed, so callers can omit the block."""
+    parts = []
+    if "air_distance" in info:
+        parts.append(f"Seedhi hawai doori: {info['air_distance']}")
+    if "weather" in info:
+        parts.append(f"{html.escape(to_city)} ka mausam: {html.escape(info['weather'])}")
+    if "aqi" in info:
+        parts.append(f"{html.escape(to_city)} ki hawa: {html.escape(info['aqi'])}")
+    if "travel_weather" in info:
+        parts.append(f"Travel date {html.escape(info['travel_weather'])}")
+    if "sun" in info:
+        parts.append(html.escape(info["sun"]))
+    if "holiday" in info:
+        parts.append(f"Travel date ko chhutti: {html.escape(info['holiday'])}")
+    if "airport" in info:
+        parts.append(f"{html.escape(to_city)} airport: {html.escape(info['airport'])}")
+    if "fx" in info:
+        parts.append(f"Currency (approx, ECB rates): {html.escape(info['fx'])}")
+    out = ""
+    if parts:
+        out += ('<div class="card"><p><b>Route info:</b> '
+                + " &middot; ".join(parts) + "</p>"
+                '<p style="color:var(--muted);font-size:.9rem">Live data: Open-Meteo (weather, air quality, forecast) / '
+                "Wikipedia (destination guide) / AirportMiles (airport) / Frankfurter (currency) / "
+                "India Public Holidays (holiday). "
+                f"Ye sirf jaankari hai — {note}</p></div>")
+    if "guide" in info:
+        g = info["guide"]
+        img = (f'<img src="{html.escape(g["thumb"], quote=True)}" alt="{html.escape(to_city)}" '
+               'style="max-width:100%;border-radius:8px">') if g["thumb"] else ""
+        src = (f' <a href="{html.escape(g["url"], quote=True)}">Wikipedia</a>') if g["url"] else ""
+        out += (f'<div class="card"><h3>{html.escape(g["title"])} ke baare me</h3>{img}'
+                f'<p>{html.escape(g["text"])}</p>'
+                f'<p style="color:var(--muted);font-size:.9rem">Source:{src}.</p></div>')
+    if "week" in info:
+        out += (f'<div class="card"><h3>{html.escape(to_city)} — agle 7 din ka mausam</h3>'
+                f'<p>{html.escape(info["week"])}</p>'
+                '<p style="color:var(--muted);font-size:.9rem">Open-Meteo forecast.</p></div>')
+    return out
+
+
 @app.route("/")
 def home():
     db = get_db()
@@ -997,6 +1040,12 @@ def home():
         f'<a class="btn ghost" href="{url_for("new_reservation")}?flight={fno}">Book Now</a></p></div>'
         for a, b, fno, tm, fare in routes
     )
+    # Featured route strip on the home page itself (no search needed):
+    # Delhi -> Mumbai for tomorrow, so the API info is visible on load.
+    _tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    featured_info = _route_info_html(
+        _air_route_info("Delhi", "Mumbai", _tomorrow), "Mumbai",
+        note="booking ke liye upar search karo.")
     body = f"""
     <div class="hero"><span class="hero-tag">Horizon Airways</span>
     <h1>Fly smart. Book in under a minute.</h1>
@@ -1009,6 +1058,9 @@ def home():
     <label>Class<select name="travel_class"><option>Economy</option><option>Business</option><option>First</option></select></label>
     <label>Sort<select name="sort"><option value="cheapest">Cheapest first</option><option value="earliest">Earliest departure</option><option value="fastest">Fastest</option></select></label>
     <button>Search Flights</button></form></div></div>
+    <h2 style="margin:6px 0 12px">Featured route · Delhi → Mumbai</h2>
+    <p style="color:var(--muted);font-size:.9rem">Live API info — bina search ke, kal ki date ke liye.</p>
+    {featured_info}
     <h2 style="margin:6px 0 12px">Popular routes</h2>
     <div class="route-grid">{route_cards}</div>
     <p style="color:var(--muted);font-size:.9rem">Note: routes added from the All-India airport list use demo fares and demo timings, not live airline fares.</p>
@@ -1218,43 +1270,7 @@ def flights():
     # hide pieces -- the flight table below always still renders.
     _route_info = ""
     if _from and _to:
-        info = _air_route_info(_from, _to, _travel_date)
-        parts = []
-        if "air_distance" in info:
-            parts.append(f"Seedhi hawai doori: {info['air_distance']}")
-        if "weather" in info:
-            parts.append(f"{html.escape(_to)} ka mausam: {html.escape(info['weather'])}")
-        if "aqi" in info:
-            parts.append(f"{html.escape(_to)} ki hawa: {html.escape(info['aqi'])}")
-        if "travel_weather" in info:
-            parts.append(f"Travel date {html.escape(info['travel_weather'])}")
-        if "sun" in info:
-            parts.append(html.escape(info["sun"]))
-        if "holiday" in info:
-            parts.append(f"Travel date ko chhutti: {html.escape(info['holiday'])}")
-        if "airport" in info:
-            parts.append(f"{html.escape(_to)} airport: {html.escape(info['airport'])}")
-        if "fx" in info:
-            parts.append(f"Currency (approx, ECB rates): {html.escape(info['fx'])}")
-        if parts:
-            _route_info = ('<div class="card"><p><b>Route info:</b> '
-                           + " &middot; ".join(parts) + "</p>"
-                           '<p style="color:var(--muted);font-size:.9rem">Live data: Open-Meteo (weather, air quality, forecast) / '
-                           "Wikipedia (destination guide) / AirportMiles (airport) / Frankfurter (currency) / "
-                           "India Public Holidays (holiday). "
-                           "Ye sirf jaankari hai — booking ke liye neeche wali flights use karo.</p></div>")
-        if "guide" in info:
-            g = info["guide"]
-            img = (f'<img src="{html.escape(g["thumb"], quote=True)}" alt="{html.escape(_to)}" '
-                   'style="max-width:100%;border-radius:8px">') if g["thumb"] else ""
-            src = (f' <a href="{html.escape(g["url"], quote=True)}">Wikipedia</a>') if g["url"] else ""
-            _route_info += (f'<div class="card"><h3>{html.escape(g["title"])} ke baare me</h3>{img}'
-                            f'<p>{html.escape(g["text"])}</p>'
-                            f'<p style="color:var(--muted);font-size:.9rem">Source:{src}.</p></div>')
-        if "week" in info:
-            _route_info += (f'<div class="card"><h3>{html.escape(_to)} — agle 7 din ka mausam</h3>'
-                            f'<p>{html.escape(info["week"])}</p>'
-                            '<p style="color:var(--muted);font-size:.9rem">Open-Meteo forecast.</p></div>')
+        _route_info = _route_info_html(_air_route_info(_from, _to, _travel_date), _to)
     body = f"""
     <div class="card"><h2>Flights</h2>
     <form class="search-form" method="get" action="{url_for('flights')}">
