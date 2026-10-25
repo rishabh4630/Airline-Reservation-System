@@ -521,7 +521,7 @@ html[data-theme="light"]{--bg:#f4f8fd;--surface:#ffffff;--surface2:#eaf5ff;--ink
       <form id="authForm">
         <div class="field" id="authNameField"><label for="authName">Full name</label><input id="authName" placeholder="e.g. Aarav Sharma"></div>
         <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" required placeholder="you@example.com"></div>
-        <div class="field"><label for="authPass">Password</label><input id="authPass" type="password" required minlength="8" placeholder="At least 8 characters, letters + numbers"></div>
+        <div class="field"><label for="authPass">Password</label><input id="authPass" type="password" required minlength="8" placeholder="At least 8 characters, uppercase, lowercase + number"></div>
         <button class="btn amber" id="authSubmit" type="submit">Login</button>
       <p style="text-align:center;color:var(--faint);font-size:.85rem;line-height:1.5">Logging in with the owner email signs you in as admin automatically.</p>
       </form>
@@ -1355,19 +1355,20 @@ document.getElementById("authForm").addEventListener("submit", function(e){
   var email = document.getElementById("authEmail").value.trim().toLowerCase();
   var pass = document.getElementById("authPass").value;
   var msg = document.getElementById("authMsg");
-  if(isSignup && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ msg.style.display="block"; msg.textContent = "Sahi email daalo, jaise naam@example.com"; return; }
-  if(isSignup && (pass.length < 8 || !/[A-Za-z]/.test(pass) || !/[0-9]/.test(pass))){ msg.style.display="block"; msg.textContent = "Password kam se kam 8 characters ka ho, usme letter aur number dono hon."; return; }
+  if(isSignup && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)){ msg.style.display="block"; msg.textContent = "Please enter a valid email address (e.g. name@example.com)."; return; }
+  if(isSignup && (pass.length < 8 || !/[a-z]/.test(pass) || !/[A-Z]/.test(pass) || !/[0-9]/.test(pass))){ msg.style.display="block"; msg.textContent = "Password must be at least 8 characters with uppercase, lowercase and a number."; return; }
   var users = loadUsers();
   var existing = null; users.forEach(function(u){ if(u.email===email) existing = u; });
   if(isSignup){
     if(!name){ msg.style.display="block"; msg.textContent = "Please enter your full name."; return; }
     if(existing){ msg.style.display="block"; msg.textContent = "This email is already registered. Please login instead."; return; }
-    msg.style.display="block"; msg.textContent = "Email verify ho rahi hai...";
+    msg.style.display="block"; msg.textContent = "Verifying email…";
     fetchTimeout("https://disify.com/api/email/" + encodeURIComponent(email), 6000)
       .then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
       .then(function(d){
-        if(d && d.dns === false){ msg.style.display="block"; msg.textContent = "Is domain par email nahi pahunch sakta — sahi domain wala email daalo."; return; }
-        if(d && d.disposable === true){ msg.style.display="block"; msg.textContent = "Temporary/disposable email allowed nahi hai — apna asli email daalo."; return; }
+        if(!d){ msg.style.display="block"; msg.textContent = "Email could not be verified. Please try again."; return; }
+        if(d.dns === false){ msg.style.display="block"; msg.textContent = "This email domain cannot receive email. Please use a valid email address."; return; }
+        if(d.disposable === true){ msg.style.display="block"; msg.textContent = "Temporary/disposable emails are not allowed. Please use your real email."; return; }
         msg.style.display="none";
         var fresh = loadUsers();
         var dup = null; fresh.forEach(function(u){ if(u.email===email) dup = u; });
@@ -1443,7 +1444,7 @@ function renderProfile(){
     '<div class="field"><label for="pfName">Full name</label><input id="pfName" value="' + escHtml(currentUser.name) + '"></div>' +
     '<p><button class="btn" onclick="saveProfileName()">Save name</button></p>' +
     '<div class="field"><label for="pfCur">Current password</label><input id="pfCur" type="password" autocomplete="current-password"></div>' +
-    '<div class="field"><label for="pfNew">New password</label><input id="pfNew" type="password" autocomplete="new-password" placeholder="At least 8 characters, letters + numbers"></div>' +
+    '<div class="field"><label for="pfNew">New password</label><input id="pfNew" type="password" autocomplete="new-password" placeholder="At least 8 characters, uppercase, lowercase + number"></div>' +
     '<div class="field"><label for="pfNew2">New password again</label><input id="pfNew2" type="password" autocomplete="new-password"></div>' +
     '<p><button class="btn" onclick="changeProfilePass()">Change password</button></p></div>' +
     '<div class="card"><h3>Settings</h3>' +
@@ -1472,7 +1473,7 @@ function changeProfilePass(){
   var users = loadUsers();
   var u = users.filter(function(x){ return x.email === currentUser.email; })[0];
   if(!u || u.passHash !== demoHash(cur)){ toast("Current password is incorrect."); return; }
-  if(nw.length < 8 || !/[A-Za-z]/.test(nw) || !/[0-9]/.test(nw)){ toast("New password must be at least 8 characters with both letters and numbers."); return; }
+  if(nw.length < 8 || !/[a-z]/.test(nw) || !/[A-Z]/.test(nw) || !/[0-9]/.test(nw)){ toast("New password must be at least 8 characters with uppercase, lowercase and a number."); return; }
   if(nw !== nw2){ toast("New passwords do not match."); return; }
   u.passHash = demoHash(nw); saveUsers(users);
   document.getElementById("pfCur").value = ""; document.getElementById("pfNew").value = ""; document.getElementById("pfNew2").value = "";
