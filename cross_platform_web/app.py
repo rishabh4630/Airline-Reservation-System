@@ -86,8 +86,10 @@ def _email_deliverable(email):
 #   SMTP_USER (your Gmail address), SMTP_PASS (a Gmail App Password --
 #   Google Account -> Security -> 2-Step Verification -> App passwords),
 #   SMTP_FROM (optional, defaults to SMTP_USER).
-# When SMTP_USER/SMTP_PASS are unset, signup falls back to creating the
-# account immediately (the previous behaviour) so the app still runs.
+# OTP is mandatory: when SMTP_USER/SMTP_PASS are unset, signup is blocked
+# and NO account is created — the user must configure mail first, then
+# sign up again. This is deliberate: an account must never be created
+# without a verified mailbox.
 # ---------------------------------------------------------------------------
 def _mail_configured():
     return bool(os.environ.get("SMTP_USER") and os.environ.get("SMTP_PASS"))
@@ -101,7 +103,9 @@ def _send_otp_email(to_email, otp):
     except ValueError:
         port = 587
     user = os.environ.get("SMTP_USER", "")
-    pw = os.environ.get("SMTP_PASS", "")
+    # App passwords are shown with spaces ("xxxx xxxx xxxx xxxx"); Gmail
+    # accepts them without spaces, so strip spaces before logging in.
+    pw = os.environ.get("SMTP_PASS", "").replace(" ", "")
     sender = os.environ.get("SMTP_FROM", user)
     if not user or not pw:
         return False
@@ -118,7 +122,10 @@ def _send_otp_email(to_email, otp):
             server.login(user, pw)
             server.sendmail(sender, [to_email], msg)
         return True
-    except Exception:
+    except Exception as e:
+        # Visible in the terminal running Flask, so a failed send is no
+        # longer silent. The exception never contains the password.
+        print(f"[otp] could not send verification email to {to_email}: {e}")
         return False
 
 
@@ -151,31 +158,31 @@ def _start_pending(db, name, email, password_hash):
 
 def _weather_label(code):
     if code is None:
-        return "mausam uplabdh nahi"
+        return "Weather unavailable"
     code = int(code)
     if code == 0:
-        return "Saaf aasmaan"
+        return "Clear sky"
     if code == 1:
-        return "Zyaada tar saaf"
+        return "Mostly clear"
     if code == 2:
-        return "Halke baadal"
+        return "Light clouds"
     if code == 3:
-        return "Baadal"
+        return "Overcast"
     if code in (45, 48):
-        return "Kohra"
+        return "Fog"
     if code in (51, 53, 55, 56, 57):
-        return "Halki boondabaandi"
+        return "Light drizzle"
     if code in (61, 80):
-        return "Halki baarish"
+        return "Light rain"
     if code in (63, 81):
-        return "Baarish"
+        return "Rain"
     if code in (65, 82, 66, 67):
-        return "Tez baarish"
+        return "Heavy rain"
     if code in (71, 73, 75, 77, 85, 86):
-        return "Barf"
+        return "Snow"
     if code in (95, 96, 99):
-        return "Aandhi-toofan"
-    return "mausam uplabdh nahi"
+        return "Thunderstorm"
+    return "Weather unavailable"
 
 
 def _aqi_label(aqi):
@@ -278,14 +285,14 @@ def _air_route_info(from_city, to_city, travel_date=None):
                         daily = (data or {}).get("daily") or {}
                         if (daily.get("time") or []):
                             info["travel_weather"] = (
-                                f"{d.strftime('%d %b')} ko: "
+                                f"{d.strftime('%d %b')}: "
                                 f"{daily['temperature_2m_max'][0]}°C / {daily['temperature_2m_min'][0]}°C, "
                                 f"{_weather_label(daily['weather_code'][0])}"
                             )
                             sr = (daily.get("sunrise") or [""])[0]
                             ss = (daily.get("sunset") or [""])[0]
                             if sr and ss:
-                                info["sun"] = f"Suryaoday {sr[11:16]}, Suryaast {ss[11:16]}"
+                                info["sun"] = f"Sunrise {sr[11:16]}, Sunset {ss[11:16]}"
                 except (ValueError, KeyError, IndexError, TypeError):
                     pass
             # Destination airport (AirportMiles, keyless, open CORS so the
@@ -375,9 +382,11 @@ def _air_route_info(from_city, to_city, travel_date=None):
         pass
     return info
 
-# The owner account: logging in with this email is automatically an admin,
-# so there is no separate admin signup/login page.
-OWNER_EMAIL = "rishabhsingh4630@gmail.com"
+# Admin access: set ADMIN_EMAIL in the environment before starting the app.
+# Logging in with that email becomes admin. If it is not set, no account
+# auto-becomes admin. The address is never shown on any page, and there is
+# no separate admin signup/login page.
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "")
 
 
 # --------------------------------------------------------------------------
@@ -822,7 +831,7 @@ def owns_booking(row):
 
 
 def effective_role(user):
-    return "admin" if user["email"].lower() == OWNER_EMAIL else user["role"]
+    return "admin" if ADMIN_EMAIL and user["email"].lower() == ADMIN_EMAIL.lower() else user["role"]
 
 
 def start_session(user):
@@ -1051,26 +1060,16 @@ def register():
             flash("This email is already registered. Please login instead.")
             return redirect(url_for("login"))
         else:
-            if _mail_configured():
-                sent = _start_pending(get_db(), name, email, generate_password_hash(password))
-                session["pending_email"] = email
-                if sent:
-                    flash("We have emailed you a 6-digit verification code. Please enter it below.")
-                else:
-                    flash("We could not send the verification email. Please tap Resend code below.")
-                return redirect(url_for("verify"))
-            db = get_db()
-            cur = db.execute(
-                "INSERT INTO users (name, email, password_hash, role, created_on) VALUES (?,?,?,?,?)",
-                (name, email, generate_password_hash(password),
-                 "admin" if email == OWNER_EMAIL else "customer", date.today().isoformat()),
-            )
-            db.commit()
-            session["user_id"] = cur.lastrowid
-            session["user_name"] = name
-            session["user_role"] = "admin" if email == OWNER_EMAIL else "customer"
-            flash(f"Welcome, {name}! Your account has been created.")
-            return redirect(url_for("home"))
+            if not _mail_configured():
+                flash("Email verification is not set up on this server yet, so no account was created. Please set SMTP_USER and SMTP_PASS, restart the app, and sign up again.")
+                return redirect(url_for("register"))
+            sent = _start_pending(get_db(), name, email, generate_password_hash(password))
+            session["pending_email"] = email
+            if sent:
+                flash("We have emailed you a 6-digit verification code. Please enter it below.")
+            else:
+                flash("We could not send the verification email, so your account has not been created yet. Please check the mail setup (SMTP_USER / SMTP_PASS) and tap Resend code below.")
+            return redirect(url_for("verify"))
     body = """
     <div class="card auth-card"><div class="auth-badge">✈ Horizon Airways</div><h2>Create your account</h2>
     <p class="auth-sub">Book flights, view your tickets and manage your reservations.</p><form method="post">
@@ -1121,13 +1120,13 @@ def verify():
         cur = db.execute(
             "INSERT INTO users (name, email, password_hash, role, created_on) VALUES (?,?,?,?,?)",
             (row["name"], email, row["password_hash"],
-             "admin" if email == OWNER_EMAIL else "customer", date.today().isoformat()),
+             "customer", date.today().isoformat()),
         )
         db.commit()
         session.pop("pending_email", None)
         session["user_id"] = cur.lastrowid
         session["user_name"] = row["name"]
-        session["user_role"] = "admin" if email == OWNER_EMAIL else "customer"
+        session["user_role"] = "customer"
         flash(f"Welcome, {row['name']}! Your email has been verified and your account has been created.")
         return redirect(url_for("home"))
     if row is None:
@@ -1163,8 +1162,7 @@ def login():
     <label>Email<input name="email" type="email" required placeholder="you@example.com"></label>
     <label>Password<input name="password" type="password" required placeholder="Your password"></label>
     <button>Login</button></form>
-    <p class="auth-switch">Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p>
-    <p class="auth-note">Logging in with the owner's email signs you in as admin automatically.</p></div>
+    <p class="auth-switch">Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p></div>
     """
     return page("Login", body)
 
@@ -1324,22 +1322,22 @@ def profile():
 # --------------------------------------------------------------------------
 # Routes - Main Menu / Dashboard
 # --------------------------------------------------------------------------
-def _route_info_html(info, to_city, note="booking ke liye neeche wali flights use karo."):
+def _route_info_html(info, to_city, note="Use the flights below to book."):
     """Render the Route info strip + guide + 7-day cards from _air_route_info output.
     Returns "" when every external call failed, so callers can omit the block."""
     parts = []
     if "air_distance" in info:
-        parts.append(f"Seedhi hawai doori: {info['air_distance']}")
+        parts.append(f"Straight-line air distance: {info['air_distance']}")
     if "weather" in info:
-        parts.append(f"{html.escape(to_city)} ka mausam: {html.escape(info['weather'])}")
+        parts.append(f"{html.escape(to_city)} weather: {html.escape(info['weather'])}")
     if "aqi" in info:
-        parts.append(f"{html.escape(to_city)} ki hawa: {html.escape(info['aqi'])}")
+        parts.append(f"{html.escape(to_city)} air quality: {html.escape(info['aqi'])}")
     if "travel_weather" in info:
         parts.append(f"Travel date {html.escape(info['travel_weather'])}")
     if "sun" in info:
         parts.append(html.escape(info["sun"]))
     if "holiday" in info:
-        parts.append(f"Travel date ko chhutti: {html.escape(info['holiday'])}")
+        parts.append(f"Holiday on travel date: {html.escape(info['holiday'])}")
     if "airport" in info:
         parts.append(f"{html.escape(to_city)} airport: {html.escape(info['airport'])}")
     if "fx" in info:
@@ -1351,17 +1349,17 @@ def _route_info_html(info, to_city, note="booking ke liye neeche wali flights us
                 '<p style="color:var(--muted);font-size:.9rem">Live data: Open-Meteo (weather, air quality, forecast) / '
                 "Wikipedia (destination guide) / AirportMiles (airport) / Frankfurter (currency) / "
                 "India Public Holidays (holiday). "
-                f"Ye sirf jaankari hai — {note}</p></div>")
+                f"This is for information only — {note}</p></div>")
     if "guide" in info:
         g = info["guide"]
         img = (f'<img src="{html.escape(g["thumb"], quote=True)}" alt="{html.escape(to_city)}" '
                'style="max-width:100%;border-radius:8px">') if g["thumb"] else ""
         src = (f' <a href="{html.escape(g["url"], quote=True)}">Wikipedia</a>') if g["url"] else ""
-        out += (f'<div class="card"><h3>{html.escape(g["title"])} ke baare me</h3>{img}'
+        out += (f'<div class="card"><h3>About {html.escape(g["title"])}</h3>{img}'
                 f'<p>{html.escape(g["text"])}</p>'
                 f'<p style="color:var(--muted);font-size:.9rem">Source:{src}.</p></div>')
     if "week" in info:
-        out += (f'<div class="card"><h3>{html.escape(to_city)} — agle 7 din ka mausam</h3>'
+        out += (f'<div class="card"><h3>{html.escape(to_city)} — Next 7 days weather</h3>'
                 f'<p>{html.escape(info["week"])}</p>'
                 '<p style="color:var(--muted);font-size:.9rem">Open-Meteo forecast.</p></div>')
     return out
@@ -1412,7 +1410,7 @@ def home():
     _tomorrow = (date.today() + timedelta(days=1)).isoformat()
     featured_info = _route_info_html(
         _air_route_info("Delhi", "Mumbai", _tomorrow), "Mumbai",
-        note="booking ke liye upar search karo.")
+        note="Use the search above to book.")
     body = f"""
     <div class="hero"><span class="hero-tag">Horizon Airways</span>
     <h1>Fly smart. Book in under a minute.</h1>
@@ -1441,7 +1439,7 @@ def home():
     <div class="card faq"><h3>Frequently asked questions</h3>
     <details><summary>What happens if my class is full?</summary><p style="color:var(--muted)">Your booking becomes Wait-listed. If a Confirmed Economy passenger cancels, the earliest Wait-listed passenger is promoted to Confirmed automatically.</p></details>
     <details><summary>How do refunds work?</summary><p style="color:var(--muted)">Wait-listed: full refund. Confirmed and travelling within 1 day: 90% refund. Confirmed otherwise: full refund. A refund receipt is generated on cancellation.</p></details>
-    <details><summary>How do I become an admin?</summary><p style="color:var(--muted)">There is no separate admin signup. Logging in with the owner's email automatically signs you in as an admin, with access to Reports and flight management.</p></details>
+    <details><summary>How do I become an admin?</summary><p style="color:var(--muted)">There is no separate admin signup. Admin access is granted by the server's ADMIN_EMAIL setting; if it is not set, no account auto-becomes admin.</p></details>
     <details><summary>Is this a real airline booking?</summary><p style="color:var(--muted)">No - this is a student project demo. Bookings are stored in this app's database and are not real airline tickets. Real flight inventory and payment would need a supported airline provider integration.</p></details>
     </div>
     <div class="card"><h3>Quick links</h3>

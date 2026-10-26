@@ -30,8 +30,9 @@ a Why Horizon section and FAQ.
 - **Sign Up / Login** — `/register` and `/login`: a customer can book,
   view and cancel only their own reservations (Reservations shows their
   own bookings), and logout. There is no separate admin signup/login
-  page: logging in with the owner's email (`OWNER_EMAIL` in `app.py`)
-  automatically signs you in as an admin.
+  page. If `ADMIN_EMAIL` is set in the environment before starting the
+  app, logging in with that address becomes admin; if it is not set,
+  no account auto-becomes admin.
 - **Profile & Settings** — `/profile` (login required): premium profile
   card with booking stats and recent bookings, edit name, change
   password, theme (System/Light/Dark), default departure city for the
@@ -155,4 +156,4 @@ python3 app.py
 Gmail App Password: Google Account → Security → 2-Step Verification ON →
 App passwords → generate one for "Mail" and use it as `SMTP_PASS`. Never
 paste it in chat or commit it. Without `SMTP_USER`/`SMTP_PASS`, signup
-falls back to creating the account immediately (no OTP step).
+is blocked and no account is created — OTP is mandatory.

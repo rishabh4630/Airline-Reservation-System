@@ -507,9 +507,9 @@ html[data-theme="light"]{--bg:#f4f8fd;--surface:#ffffff;--surface2:#eaf5ff;--ink
     </form>
   </section>
 
-  <!-- ============ LOGIN / SIGN UP (Admin & Customer) ============ -->
+  <!-- ============ LOGIN / SIGN UP ============ -->
   <section class="view" id="view-auth">
-    <div class="sec-head"><div><h2>Login / Sign Up</h2><p>Sign up as a customer to book tickets. Logging in with the owner email automatically signs you in as an admin — there is no separate admin login page.</p></div></div>
+    <div class="sec-head"><div><h2>Login / Sign Up</h2><p>Sign up as a customer to book tickets. There is no separate admin login page; logged-in customers can unlock admin access from their Profile.</p></div></div>
     <div class="card">
       <div class="auth-badge">✈ Horizon Airways</div>
       <div id="authTabs" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -523,7 +523,6 @@ html[data-theme="light"]{--bg:#f4f8fd;--surface:#ffffff;--surface2:#eaf5ff;--ink
         <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" required placeholder="you@example.com"></div>
         <div class="field"><label for="authPass">Password</label><input id="authPass" type="password" required minlength="8" placeholder="At least 8 characters, uppercase, lowercase + number"></div>
         <button class="btn amber" id="authSubmit" type="submit">Login</button>
-      <p style="text-align:center;color:var(--faint);font-size:.85rem;line-height:1.5">Logging in with the owner email signs you in as admin automatically.</p>
       </form>
       <p id="authMsg" style="display:none;color:var(--muted);font-size:.9rem"></p>
       <p style="color:var(--muted);font-size:.85rem;line-height:1.6">Demo only: accounts are saved in this browser only (localStorage), and bookings still reset when the page reloads, like the rest of this demo. Passwords are stored as a simple demo hash, never in plain text — this is not production-grade security. For real accounts with a saved database, use the Flask version in <span class="mono">cross_platform_web/</span>.</p>
@@ -629,10 +628,25 @@ var refunds = [];
    demo are still in-memory and reset on reload, as before. Passwords
    are stored as a simple demo hash, never in plain text — this is a
    demo, not production security. The Flask version uses proper hashing. */
-var OWNER_EMAIL = "rishabhsingh4630@gmail.com";
+var DEMO_ADMIN_CODE = "horizon-admin-2026"; // Demo-only admin passcode. Change this to any code you like. It is never shown anywhere on the site.
 var currentUser = null;
 var authMode = "customer-login";
-function effectiveRole(email, storedRole){ return email === OWNER_EMAIL ? "admin" : storedRole; }
+function unlockAdmin(){
+  if(!currentUser){ toast("Please log in first."); return; }
+  var input = document.getElementById("admin_code_home");
+  var code = (input && input.value) || "";
+  var users = loadUsers();
+  var acc = null; users.forEach(function(u){ if(u.email === currentUser.email) acc = u; });
+  if(!acc){ toast("Account not found. Please log in again."); return; }
+  if(code === DEMO_ADMIN_CODE){
+    acc.role = "admin"; currentUser.role = "admin";
+    saveUsers(users); saveSession(currentUser);
+    updateAuthUI(); renderProfile();
+    toast("Admin access unlocked.");
+  } else {
+    toast("Wrong admin code.");
+  }
+}
 function demoHash(str){ var h = 5381; for(var i=0;i<str.length;i++){ h = ((h<<5)+h+str.charCodeAt(i))>>>0; } return "h"+h.toString(16); }
 function loadUsers(){ try{ return JSON.parse(localStorage.getItem("horizon_demo_users") || "[]"); }catch(e){ return []; } }
 function saveUsers(u){ localStorage.setItem("horizon_demo_users", JSON.stringify(u)); }
@@ -1191,18 +1205,18 @@ function fetchTimeout(url, ms){
   return fetch(url, {signal: c.signal}).finally(function(){ clearTimeout(t); });
 }
 function weatherLabel(code){
-  if(code === 0) return "Saaf aasmaan";
-  if(code === 1) return "Zyaada tar saaf";
-  if(code === 2) return "Halke baadal";
-  if(code === 3) return "Baadal";
-  if(code === 45 || code === 48) return "Kohra";
-  if([51, 53, 55, 56, 57].indexOf(code) !== -1) return "Halki boondabaandi";
-  if(code === 61 || code === 80) return "Halki baarish";
-  if(code === 63 || code === 81) return "Baarish";
-  if([65, 82, 66, 67].indexOf(code) !== -1) return "Tez baarish";
-  if([71, 73, 75, 77, 85, 86].indexOf(code) !== -1) return "Barf";
-  if(code >= 95) return "Aandhi-toofan";
-  return "mausam uplabdh nahi";
+  if(code === 0) return "Clear sky";
+  if(code === 1) return "Mostly clear";
+  if(code === 2) return "Light clouds";
+  if(code === 3) return "Overcast";
+  if(code === 45 || code === 48) return "Fog";
+  if([51, 53, 55, 56, 57].indexOf(code) !== -1) return "Light drizzle";
+  if(code === 61 || code === 80) return "Light rain";
+  if(code === 63 || code === 81) return "Rain";
+  if([65, 82, 66, 67].indexOf(code) !== -1) return "Heavy rain";
+  if([71, 73, 75, 77, 85, 86].indexOf(code) !== -1) return "Snow";
+  if(code >= 95) return "Thunderstorm";
+  return "Weather unavailable";
 }
 function aqiLabel(aqi){
   if(aqi <= 50) return "Good";
@@ -1260,18 +1274,18 @@ function loadRouteInfo(fromCode, toCode, date, boxId){
   }).then(function(out){
     var weather = out.res[0], aqi = out.res[1], travel = out.res[2], guide = out.res[3], airport = out.res[4], week = out.res[5], fx = out.res[6], holidays = out.res[7];
     var parts = [];
-    if(out.a && out.b) parts.push("Seedhi hawai doori: ~" + Math.round(haversineKm(out.a, out.b)).toLocaleString("en-IN") + " km");
-    if(weather && weather.temperature_2m !== undefined) parts.push(esc(toCity) + " ka mausam: " + weather.temperature_2m + "°C, " + weatherLabel(weather.weather_code));
+    if(out.a && out.b) parts.push("Straight-line air distance: ~" + Math.round(haversineKm(out.a, out.b)).toLocaleString("en-IN") + " km");
+    if(weather && weather.temperature_2m !== undefined) parts.push(esc(toCity) + " weather: " + weather.temperature_2m + "°C, " + weatherLabel(weather.weather_code));
     if(aqi && aqi.us_aqi !== undefined){
       var aqiText = "AQI " + aqi.us_aqi + " (" + aqiLabel(aqi.us_aqi) + ")";
       if(aqi.pm2_5 !== undefined) aqiText += ", PM2.5 " + aqi.pm2_5 + " µg/m³";
-      parts.push(esc(toCity) + " ki hawa: " + aqiText);
+      parts.push(esc(toCity) + " air quality: " + aqiText);
     }
     if(travel){
       var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       var dd = new Date(date + "T00:00:00");
-      parts.push("Travel date " + dd.getDate() + " " + months[dd.getMonth()] + " ko: " + travel.temperature_2m_max[0] + "°C / " + travel.temperature_2m_min[0] + "°C, " + weatherLabel(travel.weather_code[0]));
-      if(travel.sunrise && travel.sunrise[0] && travel.sunset && travel.sunset[0]) parts.push("Suryaoday " + travel.sunrise[0].slice(11, 16) + ", Suryaast " + travel.sunset[0].slice(11, 16));
+      parts.push("Travel date " + dd.getDate() + " " + months[dd.getMonth()] + ": " + travel.temperature_2m_max[0] + "°C / " + travel.temperature_2m_min[0] + "°C, " + weatherLabel(travel.weather_code[0]));
+      if(travel.sunrise && travel.sunrise[0] && travel.sunset && travel.sunset[0]) parts.push("Sunrise " + travel.sunrise[0].slice(11, 16) + ", Sunset " + travel.sunset[0].slice(11, 16));
     }
     if(airport){
       var apText = airport.name;
@@ -1283,7 +1297,7 @@ function loadRouteInfo(fromCode, toCode, date, boxId){
     }
     if(holidays && holidays.length){
       var names = holidays.map(function(h){ return h.type === "gazetted_holiday" ? h.name : h.name + " (restricted)"; }).join(", ");
-      parts.push("Travel date ko chhutti: " + names);
+      parts.push("Holiday on travel date: " + names);
     }
     var guideHtml = "";
     if(guide){
@@ -1291,7 +1305,7 @@ function loadRouteInfo(fromCode, toCode, date, boxId){
       if(text.length > 300) text = text.slice(0, 300).split(" ").slice(0, -1).join(" ") + "…";
       var img = (guide.thumbnail && guide.thumbnail.source) ? '<img src="' + esc(guide.thumbnail.source) + '" alt="' + esc(toCity) + '" style="max-width:100%;border-radius:8px">' : "";
       var src = (guide.content_urls && guide.content_urls.desktop && guide.content_urls.desktop.page) ? ' <a href="' + esc(guide.content_urls.desktop.page) + '">Wikipedia</a>' : "";
-      guideHtml = '<div class="card"><h3>' + esc(guide.title || toCity) + ' ke baare me</h3>' + img + "<p>" + esc(text) + "</p>" + '<p class="muted">Source:' + src + ".</p></div>";
+      guideHtml = '<div class="card"><h3>About ' + esc(guide.title || toCity) + '</h3>' + img + "<p>" + esc(text) + "</p>" + '<p class="muted">Source:' + src + ".</p></div>";
     }
     var weekHtml = "";
     if(week){
@@ -1299,14 +1313,14 @@ function loadRouteInfo(fromCode, toCode, date, boxId){
       var weekParts = week.time.map(function(t, i){
         return days[new Date(t + "T00:00:00").getDay()] + " " + Math.round(week.temperature_2m_max[i]) + "°/" + Math.round(week.temperature_2m_min[i]) + "°";
       });
-      weekHtml = '<div class="card"><h3>' + esc(toCity) + ' — agle 7 din ka mausam</h3><p>' + weekParts.join(" &middot; ") + '</p><p class="muted">Open-Meteo forecast.</p></div>';
+      weekHtml = '<div class="card"><h3>' + esc(toCity) + ' — Next 7 days weather</h3><p>' + weekParts.join(" &middot; ") + '</p><p class="muted">Open-Meteo forecast.</p></div>';
     }
     if(!parts.length && !guideHtml && !weekHtml){
-      el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai (live service se data nahi mila).</p></div>';
+      el.innerHTML = '<div class="card"><p class="muted">Route info is unavailable (no data from the live service).</p></div>';
     } else {
-      var bookNote = (boxId === "homeRouteInfo") ? "booking ke liye upar search karo." : "booking ke liye neeche wali flights use karo.";
+      var bookNote = (boxId === "homeRouteInfo") ? "Use the search above to book." : "Use the flights below to book.";
       var stripHtml = parts.length ? '<div class="card"><p><b>Route info:</b> ' + parts.join(" &middot; ") + "</p>" +
-        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide) / AirportMiles (airport) / Frankfurter (currency) / India Public Holidays (holiday). Ye sirf jaankari hai — ' +
+        '<p class="muted">Live data: Open-Meteo (weather, air quality, forecast) / Wikipedia (destination guide) / AirportMiles (airport) / Frankfurter (currency) / India Public Holidays (holiday). This is for information only — ' +
         bookNote + "</p></div>" : "";
       el.innerHTML = stripHtml + guideHtml + weekHtml;
     }
@@ -1350,7 +1364,7 @@ document.getElementById("authTabs").addEventListener("click", function(e){
 document.getElementById("authForm").addEventListener("submit", function(e){
   e.preventDefault();
   var isSignup = authMode.indexOf("signup") !== -1;
-  var role = "customer";  // owner email below overrides this to admin
+  var role = "customer";
   var name = document.getElementById("authName").value.trim();
   var email = document.getElementById("authEmail").value.trim().toLowerCase();
   var pass = document.getElementById("authPass").value;
@@ -1373,7 +1387,7 @@ document.getElementById("authForm").addEventListener("submit", function(e){
         var fresh = loadUsers();
         var dup = null; fresh.forEach(function(u){ if(u.email===email) dup = u; });
         if(dup){ msg.style.display="block"; msg.textContent = "This email is already registered. Please login instead."; return; }
-        var nu = {name:name, email:email, passHash:demoHash(pass), role:effectiveRole(email, role)};
+        var nu = {name:name, email:email, passHash:demoHash(pass), role:role};
         fresh.push(nu); saveUsers(fresh);
         currentUser = {name:nu.name, email:nu.email, role:nu.role}; saveSession(currentUser);
         updateAuthUI(); toast("Welcome, " + name + "! Your " + role + " account has been created.");
@@ -1381,8 +1395,7 @@ document.getElementById("authForm").addEventListener("submit", function(e){
       });
   } else {
     if(!existing || existing.passHash !== demoHash(pass)){ msg.style.display="block"; msg.textContent = "Invalid email or password. Please try again."; return; }
-    currentUser = {name:existing.name, email:existing.email, role:effectiveRole(existing.email, existing.role)};
-    if(currentUser.role !== existing.role){ users.forEach(function(u){ if(u.email===email) u.role = "admin"; }); saveUsers(users); }
+    currentUser = {name:existing.name, email:existing.email, role:existing.role};
     saveSession(currentUser);
     updateAuthUI(); toast("Welcome back, " + existing.name + "!");
     showView("dashboard");
@@ -1451,6 +1464,7 @@ function renderProfile(){
     '<p class="sub" style="margin-top:0">Theme</p><div class="seg">' + segBtn("system", "System") + segBtn("light", "Light") + segBtn("dark", "Dark") + '</div>' +
     '<div class="field" style="margin-top:14px"><label for="pfFrom">Default departure city (preselected in the home search)</label><select id="pfFrom"><option value="">None</option>' + fromOpts + '</select></div>' +
     '<p><button class="btn" onclick="saveProfileSettings()">Save settings</button></p></div>' +
+    (currentUser.role === "admin" ? "" : '<div class="card"><h3>Admin access</h3><div class="field"><label for="admin_code_home">Admin code</label><input id="admin_code_home" type="password"></div><p><button class="btn" onclick="unlockAdmin()">Unlock admin access</button></p></div>') +
     '<div class="card"><h3>Danger zone</h3><p class="sub">These actions affect only your account, not the seed demo data.</p>' +
     '<p><button class="btn" onclick="clearMyBookings()">Clear my bookings</button> ' +
     '<button class="btn" style="background:var(--danger)" onclick="deleteMyAccount()">Delete account</button></p></div>';
