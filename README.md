@@ -50,7 +50,7 @@ Users can manage flights and schedules, book a reservation and get a PNR, print 
 - ✅ Automatic fare calculation from the flight's class fare
 - 🪑 Seat-availability check — if a class is full, the reservation becomes **Wait-listed**
 - 🔁 Cancelling a Confirmed Economy seat promotes the earliest Wait-listed passenger to Confirmed
-- 🔐 Login / Sign Up — customers book and manage only their own reservations; logging in with the owner's email automatically signs you in as an admin (no separate admin login page)
+- 🔐 Login / Sign Up — customers book and manage only their own reservations; if ADMIN_EMAIL is set on the server, logging in with that address becomes admin (no separate admin login page, and no account auto-becomes admin without it)
 - 🔍 Home search, popular routes and flight filters — search by route/date/class, sort by cheapest / earliest / fastest, and compare First / Business / Economy fares side by side
 - 🛫 Flight Status — check a flight's timetable, aircraft and starting fare by flight number
 - 🔀 1-stop connecting flights — when no direct flight exists (e.g. Varanasi → Bengaluru), the search shows a via-Delhi option with total fare, journey time and layover (booked as 2 separate bookings, one per leg)
