@@ -1424,7 +1424,7 @@ def home():
     <label>Sort<select name="sort"><option value="cheapest">Cheapest first</option><option value="earliest">Earliest departure</option><option value="fastest">Fastest</option></select></label>
     <button>Search Flights</button></form></div></div>
     <h2 style="margin:6px 0 12px">Featured route · Delhi → Mumbai</h2>
-    <p style="color:var(--muted);font-size:.9rem">Live API info — bina search ke, kal ki date ke liye.</p>
+    <p style="color:var(--muted);font-size:.9rem">Live API info — no search needed, for tomorrow's date.</p>
     {featured_info}
     <h2 style="margin:6px 0 12px">Popular routes</h2>
     <div class="route-grid">{route_cards}</div>

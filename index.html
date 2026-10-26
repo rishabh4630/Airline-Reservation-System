@@ -405,7 +405,7 @@ html[data-theme="light"]{--bg:#f4f8fd;--surface:#ffffff;--surface2:#eaf5ff;--ink
       <div><h2>Today's schedule</h2><p>All four Horizon Airways flights, in departure order.</p></div>
       <button class="btn navy small" data-goto="flights">Full schedule &amp; fares</button>
     </div>
-    <div class="sec-head"><div><h2>Featured route · Delhi → Mumbai</h2><p>Live API info — bina search ke, kal ki date ke liye.</p></div></div>
+    <div class="sec-head"><div><h2>Featured route · Delhi → Mumbai</h2><p>Live API info — no search needed, for tomorrow's date.</p></div></div>
     <div id="homeRouteInfo"></div>
     <div class="card sched" id="dashSchedule"></div>
 
@@ -1237,7 +1237,7 @@ function loadRouteInfo(fromCode, toCode, date, boxId){
   var fromCity = CITIES[fromCode], toCity = CITIES[toCode];
   if(!fromCity || !toCity){ el.innerHTML = ""; return; }
   var fromBase = fromCity.split(" (")[0], toBase = toCity.split(" (")[0];
-  el.innerHTML = '<div class="card"><p class="muted">Route info load ho rahi hai...</p></div>';
+  el.innerHTML = '<div class="card"><p class="muted">Route info loading...</p></div>';
   function coords(city){
     return fetchTimeout("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(city + ", India"), 6000)
       .then(function(r){ return r.json(); })
@@ -1325,7 +1325,7 @@ function loadRouteInfo(fromCode, toCode, date, boxId){
       el.innerHTML = stripHtml + guideHtml + weekHtml;
     }
   }).catch(function(){
-    el.innerHTML = '<div class="card"><p class="muted">Route info uplabdh nahi hai.</p></div>';
+    el.innerHTML = '<div class="card"><p class="muted">Route info is unavailable.</p></div>';
   });
 }
 document.getElementById("quickSearch").addEventListener("submit", function(e){
