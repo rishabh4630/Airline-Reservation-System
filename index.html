@@ -1377,12 +1377,13 @@ document.getElementById("authForm").addEventListener("submit", function(e){
     if(!name){ msg.style.display="block"; msg.textContent = "Please enter your full name."; return; }
     if(existing){ msg.style.display="block"; msg.textContent = "This email is already registered. Please login instead."; return; }
     msg.style.display="block"; msg.textContent = "Verifying email…";
-    fetchTimeout("https://disify.com/api/email/" + encodeURIComponent(email), 6000)
+    fetchTimeout("https://disify.com/api/email/" + encodeURIComponent(email), 15000)
       .then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; })
       .then(function(d){
-        if(!d){ msg.style.display="block"; msg.textContent = "Email could not be verified. Please try again."; return; }
-        if(d.dns === false){ msg.style.display="block"; msg.textContent = "This email domain cannot receive email. Please use a valid email address."; return; }
-        if(d.disposable === true){ msg.style.display="block"; msg.textContent = "Temporary/disposable emails are not allowed. Please use your real email."; return; }
+        if(d){
+          if(d.dns === false){ msg.style.display="block"; msg.textContent = "This email domain cannot receive email. Please use a valid email address."; return; }
+          if(d.disposable === true){ msg.style.display="block"; msg.textContent = "Temporary/disposable emails are not allowed. Please use your real email."; return; }
+        }
         msg.style.display="none";
         var fresh = loadUsers();
         var dup = null; fresh.forEach(function(u){ if(u.email===email) dup = u; });
