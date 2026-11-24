@@ -31,8 +31,10 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 
-from flask import Flask, flash, g, redirect, render_template_string, request, session, url_for
+from flask import Flask, flash, g, jsonify, redirect, render_template_string, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
+
+import firebase_auth
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "airline.db")
@@ -499,6 +501,8 @@ def init_db(seed=True):
         db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'customer'")
     if "prefs" not in ucols:
         db.execute("ALTER TABLE users ADD COLUMN prefs TEXT NOT NULL DEFAULT '{}'")
+    if "firebase_uid" not in ucols:
+        db.execute("ALTER TABLE users ADD COLUMN firebase_uid TEXT")
     if seed and db.execute("SELECT COUNT(*) FROM sectors").fetchone()[0] == 0:
         db.executemany(
             "INSERT INTO sectors VALUES (?,?,?,?)",
@@ -1079,7 +1083,7 @@ def register():
     <button>Create Account</button></form>
     <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Login</a></p></div>
     """
-    return page("Sign Up", body)
+    return page("Sign Up", body + firebase_auth.login_html())
 
 
 @app.route("/verify", methods=["GET", "POST"])
@@ -1164,7 +1168,7 @@ def login():
     <button>Login</button></form>
     <p class="auth-switch">Don't have an account? <a href="{{ url_for('register') }}">Sign Up</a></p></div>
     """
-    return page("Login", body)
+    return page("Login", body + firebase_auth.login_html())
 
 
 @app.route("/logout")
@@ -1172,6 +1176,70 @@ def logout():
     session.clear()
     flash("You have been logged out.")
     return redirect(url_for("home"))
+
+
+# --------------------------------------------------------------------------
+# Firebase sign-in (optional -- see firebase_auth.py)
+# The browser signs in with the Firebase JS SDK (Google / Firebase email)
+# and posts the ID token here. The token is verified with firebase-admin;
+# on success the matching local user is found or created and the SAME
+# Flask session is set as the normal login, so bookings, profile and
+# admin checks work unchanged. When Firebase is not configured this
+# endpoint answers 503 and the login page shows no Firebase buttons.
+# --------------------------------------------------------------------------
+def _firebase_find_or_create_user(db, email, name, uid):
+    """Find the local user for a verified Firebase sign-in, or create one.
+
+    Links by Firebase uid first, then by email. New users are created
+    as customers with a random, unusable password hash: they sign in
+    through Firebase, never with a local password.
+    """
+    row = None
+    if uid:
+        try:
+            row = db.execute(
+                "SELECT * FROM users WHERE firebase_uid=?", (uid,)).fetchone()
+        except sqlite3.OperationalError:
+            row = None  # very old DB without the firebase_uid column
+    if row is None:
+        row = db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+    if row is not None:
+        if uid and not row["firebase_uid"]:
+            db.execute("UPDATE users SET firebase_uid=? WHERE id=?", (uid, row["id"]))
+            db.commit()
+        return row
+    db.execute(
+        "INSERT INTO users (name, email, password_hash, role, created_on, firebase_uid)"
+        " VALUES (?,?,?,?,?,?)",
+        (name, email, generate_password_hash(secrets.token_urlsafe(32)),
+         "customer", date.today().isoformat(), uid or None),
+    )
+    db.commit()
+    return db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+
+
+@app.route("/auth/firebase", methods=["POST"])
+def auth_firebase():
+    data = request.get_json(silent=True) or {}
+    id_token = data.get("idToken", "")
+    if not id_token:
+        return jsonify({"ok": False, "error": "Missing idToken."}), 400
+    try:
+        claims = firebase_auth.verify_id_token(id_token)
+    except firebase_auth.FirebaseNotConfigured as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 503
+    except firebase_auth.InvalidFirebaseToken as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 401
+    if claims.get("email_verified") is not True:
+        return jsonify({"ok": False, "error": "Please confirm your email first. We sent a confirmation link to your email."}), 403
+    email = (claims.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"ok": False, "error": "This Firebase account has no email address."}), 400
+    name = (claims.get("name") or "").strip() or email.split("@")[0]
+    user = _firebase_find_or_create_user(
+        get_db(), email, name, claims.get("uid") or "")
+    start_session(user)
+    return jsonify({"ok": True, "name": user["name"]})
 
 
 @app.route("/profile", methods=["GET", "POST"])

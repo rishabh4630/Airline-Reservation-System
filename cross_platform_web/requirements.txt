@@ -1,1 +1,2 @@
 Flask>=3.0
+firebase-admin>=7.8,<8
