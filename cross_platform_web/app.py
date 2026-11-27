@@ -40,7 +40,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.path.join(BASE_DIR, "airline.db")
 
 app = Flask(__name__)
-app.secret_key = "horizon-airways-dev-key-change-me"
+app.secret_key = os.environ.get("SECRET_KEY", "horizon-airways-dev-key-change-me")
 
 
 # ---------------------------------------------------------------------------
