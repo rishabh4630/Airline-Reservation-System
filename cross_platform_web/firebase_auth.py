@@ -16,15 +16,22 @@ Configuration (no secrets are ever hardcoded here):
      anything sensitive; the web config itself is a public client
      identifier, but keep the file out of git anyway.)
 
-Server-side token verification uses firebase-admin with NO service
-account: verifying an ID token only needs Google's public keys and the
-project id, so no private key is created, stored or needed here. A
-service account is only required for Admin SDK calls that write to
-Firebase (not used by this app).
+Server-side token verification uses PyJWT against Google's published
+public keys: verifying an ID token only needs the RS256 signature check
+plus audience / issuer / expiry, so no service account, no private key
+and no Google credentials are created, stored or needed here.
+(firebase-admin cannot do this on Render: its Auth client resolves
+Application Default Credentials when it is constructed, so
+verify_id_token fails with DefaultCredentialsError wherever no service
+account exists -- verified 29 Nov 2026 on all four apps. A service
+account is only required for Admin SDK calls that write to Firebase,
+which this app does not use.)
 """
 
 import json
 import os
+import time
+import urllib.request
 
 _CONFIG_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "firebase-config.json"
@@ -36,7 +43,66 @@ _cache = {"loaded": False, "config": None}
 
 
 class FirebaseNotConfigured(Exception):
-    """Firebase has no web config, or firebase-admin is not installed."""
+    """Firebase has no web config, or PyJWT is not installed."""
+
+
+_GOOGLE_JWKS_URL = (
+    "https://www.googleapis.com/service_accounts/v1/jwk/"
+    "securetoken@system.gserviceaccount.com"
+)
+_JWKS_CACHE_SECONDS = 3600
+_jwks = {"fetched_at": 0.0, "keys": {}}
+
+
+def _fetch_jwks():
+    """Fetch Google's public keys for Firebase ID tokens (cached 1h).
+
+    Raises FirebaseNotConfigured when the keys cannot be fetched
+    (network problem on the server); callers map that to HTTP 503.
+    """
+    now = time.time()
+    if _jwks["keys"] and now - _jwks["fetched_at"] < _JWKS_CACHE_SECONDS:
+        return _jwks["keys"]
+    req = urllib.request.Request(
+        _GOOGLE_JWKS_URL, headers={"User-Agent": "python-urllib"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.load(resp)
+    except Exception as exc:
+        raise FirebaseNotConfigured(
+            "Firebase sign-in cannot be verified right now: Google's "
+            "public keys could not be fetched (%s). Please try again." % (exc,)
+        ) from exc
+    keys = {}
+    for entry in data.get("keys", []):
+        if entry.get("kid"):
+            keys[entry["kid"]] = entry
+    if not keys:
+        raise FirebaseNotConfigured(
+            "Firebase sign-in cannot be verified right now: Google "
+            "returned no public keys. Please try again."
+        )
+    _jwks["fetched_at"] = now
+    _jwks["keys"] = keys
+    return keys
+
+
+def _signing_key(kid):
+    """RS256 public key for the token's kid; refetches once on a miss."""
+    import jwt
+
+    keys = _fetch_jwks()
+    entry = keys.get(kid) if kid else None
+    if entry is None:
+        _jwks["fetched_at"] = 0.0
+        keys = _fetch_jwks()
+        entry = keys.get(kid) if kid else None
+    if entry is None:
+        raise InvalidFirebaseToken(
+            "Invalid or expired Firebase sign-in. Please sign in again."
+        )
+    return jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(entry))
 
 
 class InvalidFirebaseToken(Exception):
@@ -93,22 +159,18 @@ def web_config_json():
     return json.dumps(cfg, separators=(",", ":")).replace("<", "\\u003c")
 
 
-def _admin_auth():
-    """Return the firebase_admin.auth module, ready to verify ID tokens.
+def verify_id_token(id_token):
+    """Verify a Firebase ID token; return the decoded claims dict.
 
-    Initialises the default Firebase app with only the project id from
-    the web config. No credential / service account is used: ID-token
-    verification needs only Google's public keys, which firebase-admin
-    fetches itself.
+    Verifies the RS256 signature against Google's published public keys
+    and checks audience (this project's id), issuer, expiry and subject.
+    No Google credentials are needed.
+
+    Raises FirebaseNotConfigured (caller maps to HTTP 503) or
+    InvalidFirebaseToken (caller maps to HTTP 401).
     """
-    try:
-        import firebase_admin
-        from firebase_admin import auth as _auth
-    except ImportError as exc:
-        raise FirebaseNotConfigured(
-            "Firebase is not set up on this server: the firebase-admin "
-            "package is not installed. Run: pip install -r requirements.txt"
-        ) from exc
+    if not id_token or not isinstance(id_token, str):
+        raise InvalidFirebaseToken("Missing ID token.")
     cfg = _load_config()
     if cfg is None:
         raise FirebaseNotConfigured(
@@ -119,40 +181,39 @@ def _admin_auth():
             "then restart the app."
         )
     try:
-        firebase_admin.get_app()
-    except ValueError:
-        try:
-            firebase_admin.initialize_app(options={"projectId": cfg["projectId"]})
-        except Exception as exc:  # e.g. no credentials found
-            raise FirebaseNotConfigured(
-                "Firebase could not be initialised on this server: %s" % (exc,)
-            ) from exc
-    return _auth
-
-
-def verify_id_token(id_token):
-    """Verify a Firebase ID token; return the decoded claims dict.
-
-    Raises FirebaseNotConfigured (caller maps to HTTP 503) or
-    InvalidFirebaseToken (caller maps to HTTP 401).
-    """
-    if not id_token or not isinstance(id_token, str):
-        raise InvalidFirebaseToken("Missing ID token.")
-    auth = _admin_auth()
+        import jwt
+    except ImportError as exc:
+        raise FirebaseNotConfigured(
+            "Firebase is not set up on this server: the PyJWT "
+            "package is not installed. Run: pip install -r requirements.txt"
+        ) from exc
+    project_id = cfg["projectId"]
     try:
-        claims = auth.verify_id_token(id_token, check_revoked=False)
-    except FirebaseNotConfigured:
-        raise
+        kid = jwt.get_unverified_header(id_token).get("kid")
     except Exception as exc:
-        # firebase-admin raises InvalidIdTokenError / ExpiredIdTokenError /
-        # RevokedIdTokenError (and CertificateFetchError) for bad tokens.
         raise InvalidFirebaseToken(
             "Invalid or expired Firebase sign-in. Please sign in again."
         ) from exc
-    if not isinstance(claims, dict) or not claims.get("uid"):
+    key = _signing_key(kid)
+    try:
+        claims = jwt.decode(
+            id_token,
+            key,
+            algorithms=["RS256"],
+            audience=project_id,
+            issuer="https://securetoken.google.com/" + project_id,
+            options={"require": ["exp", "iat", "aud", "iss", "sub"]},
+        )
+    except Exception as exc:
+        raise InvalidFirebaseToken(
+            "Invalid or expired Firebase sign-in. Please sign in again."
+        ) from exc
+    if not isinstance(claims, dict) or not claims.get("sub"):
         raise InvalidFirebaseToken(
             "Invalid or expired Firebase sign-in. Please sign in again."
         )
+    # firebase-admin returns the subject as "uid"; callers use that name.
+    claims["uid"] = claims["sub"]
     return claims
 
 
